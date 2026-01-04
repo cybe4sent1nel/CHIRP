@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Chirp - Connect, Share, Engage</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+        }
+        .logo-hero {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .tagline {
+            font-size: 1.5em;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px 15px 0 0;
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.3);
+        }
+        .content {
+            padding: 60px 40px;
+        }
+        .section {
+            margin-bottom: 50px;
+        }
+        h2 {
+            color: #667eea;
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 10px;
+        }
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        h3 {
+            color: #764ba2;
+            font-size: 1.5em;
+            margin: 25px 0 15px;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 15px;
+            margin: 40px 0;
+        }
+        .stat {
+            text-align: center;
+            color: white;
+            padding: 20px;
+        }
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            display: block;
+        }
+        .stat-label {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .cta {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+            margin-top: 40px;
+        }
+        .cta h2 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        .cta h2::after {
+            display: none;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: white;
+            color: #f5576c;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .footer {
+            background: #2d3748;
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .footer-links {
+            margin: 20px 0;
+        }
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        .footer-links a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+        .team {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .team-member {
+            text-align: center;
+            max-width: 200px;
+        }
+        .team-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="logo-hero">🐦</div>
+        <h1>Chirp</h1>
+        <p class="tagline">The social media platform that puts you first. Connect authentically, share freely, and engage meaningfully.</p>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <div class="section">
+                <h2>Our Mission</h2>
+                <p>At Chirp, we believe social media should bring people together, not drive them apart. Our mission is to create a platform where authentic connections flourish, diverse voices are heard, and meaningful conversations happen.</p>
+                <p>We're building more than just another social network—we're building a community where respect, creativity, and genuine human connection are at the heart of everything we do.</p>
+            </div>
+
+            <div class="section">
+                <h2>What Makes Chirp Different</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔐</div>
+                        <h3>Privacy First</h3>
+                        <p>Your data belongs to you. We don't sell your information, and we give you complete control over your privacy settings.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💬</div>
+                        <h3>Real Connections</h3>
+                        <p>Connect with friends, family, and like-minded people. Share your thoughts, stories, and moments that matter.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <h3>Creative Freedom</h3>
+                        <p>Express yourself with posts, stories, images, and AI-powered tools. Your creativity, your way.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Real-Time Updates</h3>
+                        <p>Stay connected with instant notifications, live messaging, and real-time updates from your network.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <h3>AI-Powered</h3>
+                        <p>Leverage AI for content creation, personalized recommendations, and enhanced user experience.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌍</div>
+                        <h3>Global Community</h3>
+                        <p>Join channels, discover new voices, and be part of a worldwide community that celebrates diversity.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">∞</span>
+                    <span class="stat-label">Possibilities</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">24/7</span>
+                    <span class="stat-label">Always Online</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">100%</span>
+                    <span class="stat-label">Your Data, Your Control</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">0</span>
+                    <span class="stat-label">Data Selling</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Key Features</h2>
+                
+                <h3>📱 Posts & Stories</h3>
+                <p>Share your thoughts, photos, and videos with your network. Create ephemeral stories that disappear after 24 hours for casual, in-the-moment sharing.</p>
+
+                <h3>💬 Real-Time Messaging</h3>
+                <p>Chat privately with friends and groups. WhatsApp-style message status indicators keep you informed about delivery and read receipts.</p>
+
+                <h3>🤝 Connections</h3>
+                <p>Build your network by following users and sending connection requests. Discover new people and expand your social circle.</p>
+
+                <h3>🔔 Smart Notifications</h3>
+                <p>Stay updated with intelligent notifications that keep you informed without overwhelming you.</p>
+
+                <h3>🎭 Channels & Communities</h3>
+                <p>Join or create channels around topics you care about. Build communities and engage with like-minded individuals.</p>
+
+                <h3>📰 News & Articles</h3>
+                <p>Stay informed with curated news and articles. Discover trending topics and in-depth content.</p>
+
+                <h3>🤖 AI Studio</h3>
+                <p>Leverage artificial intelligence for content creation, image generation, and personalized recommendations.</p>
+
+                <h3>🔐 Secure Authentication</h3>
+                <p>Multiple sign-in options including email/password, Google OAuth, and Clerk for maximum security and convenience.</p>
+            </div>
+
+            <div class="section">
+                <h2>Our Values</h2>
+                
+                <h3>Authenticity</h3>
+                <p>We believe in real connections between real people. No fake profiles, no bots, no manipulation.</p>
+
+                <h3>Respect</h3>
+                <p>Every user deserves to be treated with dignity. We have zero tolerance for harassment, hate speech, or bullying.</p>
+
+                <h3>Privacy</h3>
+                <p>Your personal information is sacred. We protect your data with industry-leading security and give you full control.</p>
+
+                <h3>Innovation</h3>
+                <p>We constantly evolve and improve, leveraging the latest technology to enhance your experience.</p>
+
+                <h3>Community</h3>
+                <p>Together we're stronger. We foster a positive, inclusive environment where everyone has a voice.</p>
+
+                <h3>Transparency</h3>
+                <p>We're open about our policies, practices, and values. No hidden agendas, no surprises.</p>
+            </div>
+
+            <div class="section">
+                <h2>The Technology</h2>
+                <p>Chirp is built with cutting-edge technology to deliver a fast, reliable, and secure experience:</p>
+                <ul style="margin-left: 30px; margin-top: 15px;">
+                    <li><strong>Modern Stack:</strong> React frontend with Node.js backend for optimal performance</li>
+                    <li><strong>Real-Time:</strong> Server-Sent Events (SSE) for instant updates and notifications</li>
+                    <li><strong>Cloud-Powered:</strong> Scalable infrastructure with MongoDB Atlas and ImageKit CDN</li>
+                    <li><strong>Secure:</strong> Bank-grade encryption, bcrypt password hashing, JWT authentication</li>
+                    <li><strong>AI-Enhanced:</strong> Machine learning for content recommendations and moderation</li>
+                    <li><strong>Mobile-Ready:</strong> Responsive design that works beautifully on any device</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>Our Commitment to Safety</h2>
+                <p>Your safety and well-being are our top priorities. We employ:</p>
+                <ul style="margin-left: 30px; margin-top: 15px;">
+                    <li><strong>Content Moderation:</strong> AI-powered and human review to keep the platform safe</li>
+                    <li><strong>Reporting Tools:</strong> Easy-to-use tools to report inappropriate content or behavior</li>
+                    <li><strong>Privacy Controls:</strong> Granular settings to control who sees your content</li>
+                    <li><strong>Blocking:</strong> Ability to block users who make you uncomfortable</li>
+                    <li><strong>Verification:</strong> Email verification to reduce spam and fake accounts</li>
+                    <li><strong>Support Team:</strong> Dedicated team to handle safety concerns and disputes</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>For Creators</h2>
+                <p>Chirp is designed with creators in mind:</p>
+                <ul style="margin-left: 30px; margin-top: 15px;">
+                    <li><strong>Rich Media:</strong> Share photos, videos, and stories with your audience</li>
+                    <li><strong>AI Tools:</strong> Use AI Studio to enhance your content creation</li>
+                    <li><strong>Analytics:</strong> Understand your audience with engagement metrics (coming soon)</li>
+                    <li><strong>Channels:</strong> Build your own community channel around your content</li>
+                    <li><strong>Monetization:</strong> Creator tools and monetization options (coming soon)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>Join the Movement</h2>
+                <p>Chirp is more than a platform—it's a movement towards healthier, more authentic social media. We're building this together with our community, and we want you to be part of it.</p>
+                <p>Whether you're here to connect with friends, share your creativity, discover new ideas, or build a community, Chirp is your space to be yourself.</p>
+            </div>
+
+            <div class="cta">
+                <h2>Ready to Join?</h2>
+                <p style="font-size: 1.2em; margin-bottom: 30px;">Create your free account today and start connecting!</p>
+                <a href="/auth" class="btn">Sign Up Now</a>
+                <a href="/auth" class="btn" style="background: transparent; border: 2px solid white; color: white;">Log In</a>
+            </div>
+
+            <div class="section">
+                <h2>Contact Us</h2>
+                <p>We'd love to hear from you! Whether you have questions, feedback, or just want to say hi:</p>
+                <ul style="margin-left: 30px; margin-top: 15px;">
+                    <li><strong>General Inquiries:</strong> <a href="mailto:hello@chirp.com">hello@chirp.com</a></li>
+                    <li><strong>Support:</strong> <a href="mailto:support@chirp.com">support@chirp.com</a></li>
+                    <li><strong>Press:</strong> <a href="mailto:press@chirp.com">press@chirp.com</a></li>
+                    <li><strong>Partnerships:</strong> <a href="mailto:partners@chirp.com">partners@chirp.com</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="logo-hero" style="width: 60px; height: 60px; font-size: 30px; margin: 0 auto 20px;">🐦</div>
+        <p style="font-size: 1.1em; margin-bottom: 20px;"><strong>Chirp</strong> - Connect, Share, Engage</p>
+        <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/about.html">About</a>
+            <a href="/privacy-policy.html">Privacy</a>
+            <a href="/terms-of-service.html">Terms</a>
+            <a href="mailto:support@chirp.com">Support</a>
+        </div>
+        <p style="margin-top: 20px; opacity: 0.7; font-size: 0.9em;">© 2026 Chirp, Inc. All rights reserved.</p>
+        <p style="opacity: 0.7; font-size: 0.9em;">Built with ❤️ by Fahad Khan (cybe4sent1nel)</p>
+    </div>
+</body>
+</html>

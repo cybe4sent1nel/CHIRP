@@ -1,0 +1,59 @@
+name = "chirp-ai-worker"
+main = "text_image_worker.js"
+compatibility_date = "2024-12-22"
+type = "service"
+
+# Workers AI binding - automatically available as env.AI
+[env.production]
+name = "chirp-ai-worker-prod"
+routes = [
+    { pattern = "*.chirp-ai.workers.dev", zone_id = "" }
+]
+
+[[env.production.analytics_engine_datasets]]
+dataset = "chirp_ai_analytics"
+
+[env.development]
+name = "chirp-ai-worker-dev"
+
+# Environment variables (set via wrangler secret or dashboard)
+[vars]
+# Set this to your secret API key for authentication
+API_KEY = "your-secret-api-key-change-this"
+
+# Optional: Web search integration
+# Get SERPAPI_KEY from https://serper.dev (recommended)
+SERPAPI_KEY = ""
+
+# Optional: Bing Search (reliable fallback)
+# Get SEARCH_API_KEY from https://www.microsoft.com/bing/apis/bing-web-search-api
+SEARCH_API_KEY = ""
+
+# Optional: Brave Search (free alternative)
+# Get BRAVE_API_KEY from https://api.search.brave.com
+BRAVE_API_KEY = ""
+
+# Build configuration
+[build]
+command = "echo 'Worker built'"
+cwd = "./"
+
+# Optional: KV namespace for caching
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-id"
+
+# Optional: Durable Objects for persistent state
+# [[durable_objects.bindings]]
+# name = "COUNTER"
+# class_name = "Counter"
+# script_name = "counter"
+
+# Observability
+[observability]
+enabled = true
+
+# Limits
+[limits]
+cpu_milliseconds = 30000
