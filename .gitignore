@@ -126,6 +126,9 @@ local_*/
 *.md
 !README.md
 
+# Ignore text files
+*.txt
+
 # Ignore script files
 *.bat
 *.ps1
