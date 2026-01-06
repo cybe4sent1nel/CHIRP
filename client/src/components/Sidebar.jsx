@@ -1,26 +1,43 @@
 import { useState, useEffect } from "react";
 import { menuItemsData } from "../assets/assets";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { CirclePlus, LogOut, ChevronDown } from "lucide-react";
-import { UserButton, useClerk, useAuth } from "@clerk/clerk-react";
+import { CirclePlus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
 import { useSelector } from "react-redux";
 import api from "../api/axios";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user.value);
-  const { signOut } = useClerk();
   const { getToken } = useAuth();
   const [notificationCount, setNotificationCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const [openSubmenu, setOpenSubmenu] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    // Get unread notifications count from localStorage or API
-    const unreadNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
-    const unreadCount = unreadNotifications.filter((n) => !n.read).length;
-    setNotificationCount(unreadCount);
-  }, []);
+    // Fetch unread notification count from API
+    const fetchNotificationCount = async () => {
+      try {
+        const token = await getToken();
+        const { data } = await api.get('/api/notification/unread-count', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (data.success) {
+          setNotificationCount(data.unreadCount);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notification count:', error);
+      }
+    };
+
+    if (user) {
+      fetchNotificationCount();
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchNotificationCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, getToken]);
 
   // Fetch unread message count
   useEffect(() => {
@@ -42,7 +59,18 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       fetchUnreadMessages();
       // Refresh every 10 seconds
       const interval = setInterval(fetchUnreadMessages, 10000);
-      return () => clearInterval(interval);
+      
+      // Listen for new messages in real-time
+      const handleNewMessage = () => {
+        fetchUnreadMessages();
+      };
+      
+      window.addEventListener('messageReceived', handleNewMessage);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('messageReceived', handleNewMessage);
+      };
     }
   }, [user, getToken]);
 
@@ -73,18 +101,25 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
   return (
     <div
-      className={`w-60 xl:w-72 bg-white border-r border-gray-200 flex flex-col justify-between max-sm:absolute top-0 bottom-0 z-20 ${
+      className={`${isCollapsed ? 'w-20' : 'w-60 xl:w-72'} bg-white border-r border-gray-200 flex flex-col justify-between max-sm:absolute top-0 bottom-0 z-20 ${
         sidebarOpen ? "translate-x-0" : "max-sm:-translate-x-full"
       } transition-all duration-300 ease-in-out`}
     >
       <div className="w-full">
-        <div className="p-4 px-6">
+        <div className="p-4 px-6 flex items-center justify-between">
           <img
             onClick={() => navigate("/")}
             src="/LOGOO.png"
             alt="Logo"
-            className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
+            className={`${isCollapsed ? 'w-10 h-10' : 'w-12 h-12'} cursor-pointer hover:opacity-80 transition-all`}
           />
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="max-sm:hidden p-2 rounded-full hover:bg-gray-100 transition-colors"
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          </button>
         </div>
 
         <nav className="px-4 mt-2 space-y-1">
@@ -98,19 +133,22 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                   <button
                     onClick={() => setOpenSubmenu(isOpen ? null : item.label)}
                     className="w-full flex items-center gap-4 px-4 py-3 rounded-full text-lg font-medium transition-all duration-200 text-gray-700 hover:bg-gray-100"
+                    title={isCollapsed ? item.label : ''}
                   >
                     <item.Icon className="w-6 h-6" />
-                    <span className="flex items-center gap-2 flex-1 justify-between">
-                      {item.label}
-                      <ChevronDown
-                        className={`w-5 h-5 transition-transform duration-200 ${
-                          isOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </span>
+                    {!isCollapsed && (
+                      <span className="flex items-center gap-2 flex-1 justify-between">
+                        {item.label}
+                        <ChevronDown
+                          className={`w-5 h-5 transition-transform duration-200 ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </span>
+                    )}
                   </button>
                   
-                  {isOpen && (
+                  {isOpen && !isCollapsed && (
                     <div className="pl-4 space-y-1 mt-1">
                       {item.submenu.map((subitem) => (
                         <NavLink
@@ -143,27 +181,40 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 end={item.to === "/"}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-4 px-4 py-3 rounded-full text-lg font-medium transition-all duration-200 ${
+                  `flex items-center gap-4 px-4 py-3 rounded-full text-lg font-medium transition-all duration-200 relative ${
                     isActive
                       ? "bg-indigo-50 text-indigo-600"
                       : "text-gray-700 hover:bg-gray-100"
                   }`
                 }
+                title={isCollapsed ? item.label : ''}
               >
                 <item.Icon className="w-6 h-6" />
-                <span className="flex items-center gap-2">
-                  {item.label}
-                  {item.label === "Notifications" && notificationCount > 0 && (
-                    <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                      {notificationCount > 99 ? "99+" : notificationCount}
-                    </span>
-                  )}
-                  {item.label === "Messages" && messageCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-lg animate-pulse">
-                      {messageCount > 99 ? "99+" : messageCount}
-                    </span>
-                  )}
-                </span>
+                {!isCollapsed && (
+                  <span className="flex items-center gap-2">
+                    {item.label}
+                    {item.label === "Notifications" && notificationCount > 0 && (
+                      <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                        {notificationCount > 99 ? "99+" : notificationCount}
+                      </span>
+                    )}
+                    {item.label === "Messages" && messageCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-lg animate-pulse">
+                        {messageCount > 99 ? "99+" : messageCount}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {isCollapsed && item.label === "Notifications" && notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {notificationCount > 9 ? "9+" : notificationCount}
+                  </span>
+                )}
+                {isCollapsed && item.label === "Messages" && messageCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+                    {messageCount > 9 ? "9+" : messageCount}
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -172,37 +223,14 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <div className="px-4 mt-6">
           <Link
             to="/create-post"
-            className="flex items-center justify-center gap-2 py-3 w-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 transition-all duration-200 text-white font-bold text-lg shadow-lg hover:shadow-xl"
+            className={`flex items-center justify-center gap-2 py-3 w-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 transition-all duration-200 text-white font-bold text-lg shadow-lg hover:shadow-xl ${
+              isCollapsed ? 'px-3' : ''
+            }`}
+            title={isCollapsed ? 'Create Post' : ''}
           >
             <CirclePlus className="w-5 h-5" />
-            Create Post
+            {!isCollapsed && <span>Create Post</span>}
           </Link>
-        </div>
-      </div>
-
-      <div className="w-full border-t border-gray-200 p-4">
-        <div className="flex items-center justify-between hover:bg-gray-100 rounded-full p-3 transition-colors cursor-pointer">
-          <div className="flex gap-3 items-center">
-            <UserButton />
-            <div className="hidden xl:block">
-              <h1 className="text-sm font-semibold text-gray-900 truncate max-w-[120px]">
-                {user.full_name}
-              </h1>
-              <p className="text-xs text-gray-500 truncate max-w-[120px]">
-                @{user.username}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              signOut();
-              window.location.href = '/welcome';
-            }}
-            className="p-2 rounded-full hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
-            title="Logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </div>

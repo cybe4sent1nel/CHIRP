@@ -40,6 +40,11 @@ const messageSchema = new mongoose.Schema(
     starred: [{ type: String, ref: "User" }],
     // Message pinning
     pinned: [{ type: String, ref: "User" }],
+    // View-Once Messages
+    view_once: { type: Boolean, default: false },
+    viewed_by: [{ type: String, ref: "User" }],
+    viewed_at: { type: Date },
+    allow_save: { type: Boolean, default: true },
   },
   { timestamps: true, minimize: false }
 );

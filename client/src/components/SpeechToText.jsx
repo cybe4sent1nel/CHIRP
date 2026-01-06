@@ -180,7 +180,7 @@ const SpeechToText = ({ onSend, placeholder = "Start speaking..." }) => {
     <div className="relative">
       {/* Listening Indicator */}
       {isListening && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
             <div className="flex flex-col items-center">
               {/* Animated Sound Wave Pulse */}
@@ -268,7 +268,7 @@ const SpeechToText = ({ onSend, placeholder = "Start speaking..." }) => {
 
       {/* Preview Modal */}
       {showPreview && !isListening && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800">Review & Send</h3>

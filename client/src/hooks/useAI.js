@@ -1,6 +1,16 @@
 import { useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 
+// Utility function to convert file to base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 // Get environment variables (from parent .env via VITE_ prefix)
 const getEnvVar = (key) => {
   return import.meta.env[`VITE_${key}`] || import.meta.env[key] || "";
@@ -139,7 +149,7 @@ export const useAI = () => {
 
   // Combined chat with smart context-aware routing
   const chat = useCallback(
-    async (message, conversationHistory = []) => {
+    async (message, conversationHistory = [], useTools = true, imageFile = null, modelHint = 'auto') => {
       const lower = message.toLowerCase();
       
       // More precise image generation detection
@@ -149,15 +159,16 @@ export const useAI = () => {
                             /\bgive\s+me\s+an?\s+(image|photo|picture)/i.test(message) ||
                             /\bdraw|sketch|paint|illustrate\b/i.test(message);
 
-      // Vision/analysis detection
-      const isVisionRequest = /\b(analyze|describe|what|explain|read|ocr|extract|identify|recognize)\b.*\b(image|photo|picture)/i.test(message) ||
+      // Vision/analysis detection - if image file provided, always use vision
+      const isVisionRequest = imageFile !== null || 
+                              /\b(analyze|describe|what|explain|read|ocr|extract|identify|recognize)\b.*\b(image|photo|picture)/i.test(message) ||
                               /\b(image|photo|picture|screenshot).*\b(analyze|describe|what|explain|show)\b/i.test(message);
 
       // Tool detection (search, fetch, scrape)
       const isToolRequest = /\b(search|find|look\s+up|fetch|get|read|visit|scrape|browse|check)\b/i.test(message);
 
       // If explicitly asking for image generation, do it
-      if (isImageRequest) {
+      if (isImageRequest && !isVisionRequest) {
         return generateImage(message);
       }
 
@@ -257,6 +268,36 @@ When users ask for:
 - Share relevant industry trends and best practices
 
 Remember: You are here to empower users with knowledge, creativity, and practical guidance while maintaining the highest standards of safety, ethics, and professionalism.`;
+
+      // Determine request type for worker
+      let requestType = 'text';
+      if (isVisionRequest) {
+        requestType = 'vision';
+      }
+      
+      // Prepare request body
+      const requestBody = {
+        prompt: message,
+        systemPrompt: systemPrompt,
+        sessionId: "web-user",
+        type: requestType,
+        tools: useTools,
+        history: conversationHistory,
+      };
+      
+      // If image file provided for vision model, convert to base64
+      if (imageFile) {
+        try {
+          const base64Image = await fileToBase64(imageFile);
+          requestBody.imageData = base64Image;
+        } catch (err) {
+          console.error('Image conversion error:', err);
+          return {
+            text: 'Error: Unable to process image file',
+            success: false,
+          };
+        }
+      }
 
       return generateText(message, systemPrompt, conversationHistory);
     },

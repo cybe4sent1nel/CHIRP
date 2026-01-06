@@ -17,13 +17,53 @@ const channelMessageSchema = new mongoose.Schema({
   },
   message_type: {
     type: String,
-    enum: ['text', 'voice', 'image'],
+    enum: ['text', 'voice', 'image', 'video', 'audio', 'document', 'gif', 'poll'],
     default: 'text'
   },
-  likes_count: [{
+  file_name: {
+    type: String,
+    default: null
+  },
+  reactions: {
+    type: Map,
+    of: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    default: {}
+  },
+  reply_to: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ChannelMessage',
+    default: null
+  },
+  viewed_by: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  is_pinned: {
+    type: Boolean,
+    default: false
+  },
+  forwarded: {
+    type: Boolean,
+    default: false
+  },
+  poll_data: {
+    question: String,
+    options: [{
+      text: String,
+      votes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }]
+    }],
+    multiple_choice: {
+      type: Boolean,
+      default: false
+    },
+    expires_at: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now

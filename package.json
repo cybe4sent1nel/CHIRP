@@ -1,0 +1,24 @@
+{
+  "name": "chirp-social-media",
+  "version": "1.0.0",
+  "description": "Full Stack Social Media App - Chirp",
+  "main": "start.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node start.js",
+    "start": "node start.js",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build:client",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "start:win": "start.bat",
+    "start:ps": "powershell -ExecutionPolicy Bypass -File start.ps1"
+  },
+  "keywords": ["social-media", "chirp", "chat", "network"],
+  "author": "Fahad Khan (cybe4sent1nel)",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.2.2"
+  }
+}

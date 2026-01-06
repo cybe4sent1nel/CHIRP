@@ -1,6 +1,11 @@
 import { Calendar, MapPin, Verified, PenBox } from "lucide-react";
 import moment from "moment";
+import BrutalistQRButton from "./BrutalistQRButton";
+import { useNavigate } from "react-router-dom";
+
 const UserProfileInfo = ({ user, posts, profileId, setShowEdit }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="relative py-4 px-6 md:px-8 bg-white">
       <div className="flex flex-col md:flex-row items-start gap-6">
@@ -64,6 +69,12 @@ const UserProfileInfo = ({ user, posts, profileId, setShowEdit }) => {
                 <span className="sm:text-xl font-bold text-gray-900">{user.following.length}</span>
                 <span className="text-xs sm:text-sm text-gray-500 ml-1.5">Following</span>
             </div>
+            {/* QR Button - Only show for own profile */}
+            {!profileId && (
+              <div className="ml-auto">
+                <BrutalistQRButton onClick={() => navigate("/profile-qr")} />
+              </div>
+            )}
           </div>
         </div>
       </div>

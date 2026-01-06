@@ -248,7 +248,7 @@ const getMessageType = (mimeType) => {
 export const sendMessage = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const { to_user_id, text } = req.body;
+    const { to_user_id, text, view_once, allow_save } = req.body;
     
     // Handle file from any field name
     const uploadedFile = req.files?.[0] || req.file;
@@ -306,6 +306,10 @@ export const sendMessage = async (req, res) => {
       sent: true,
       delivered: isRecipientOnline,  // Mark as delivered if recipient is online
       delivered_at: isRecipientOnline ? new Date() : null,
+      // View-once fields
+      view_once: view_once === 'true' || view_once === true,
+      allow_save: allow_save === 'false' || allow_save === false ? false : true,
+      viewed_by: [],
     });
 
     res.json({ success: true, message });
@@ -671,6 +675,81 @@ export const deleteMessageForEveryone = async (req, res) => {
     await message.save();
 
     res.json({ success: true, message: 'Message deleted for everyone' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Mark message as viewed (for view-once messages)
+export const markMessageAsViewed = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { messageId } = req.params;
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    // Check if user is the recipient
+    if (message.recipient_id !== userId && message.to_user_id !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only view messages sent to you' 
+      });
+    }
+
+    // Check if it's a view-once message
+    if (!message.view_once) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This is not a view-once message' 
+      });
+    }
+
+    // Check if already viewed by this user
+    if (message.viewed_by && message.viewed_by.includes(userId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Message already viewed',
+        viewed_at: message.viewed_at
+      });
+    }
+
+    // Mark as viewed
+    if (!message.viewed_by) {
+      message.viewed_by = [];
+    }
+    message.viewed_by.push(userId);
+    
+    // Set viewed_at timestamp if first time
+    if (!message.viewed_at) {
+      message.viewed_at = new Date();
+    }
+
+    await message.save();
+
+    // Notify sender about view status via SSE
+    const senderId = message.sender_id || message.from_user_id;
+    if (connections[senderId] && connections[senderId].writable) {
+      const viewUpdate = {
+        type: 'messageViewed',
+        messageId: message._id,
+        viewedBy: userId,
+        viewedAt: message.viewed_at,
+        timestamp: new Date().toISOString()
+      };
+      connections[senderId].write(`data: ${JSON.stringify(viewUpdate)}\n\n`);
+      console.log(`Sent view notification to sender ${senderId}`);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Message marked as viewed',
+      viewed_at: message.viewed_at
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ success: false, message: error.message });

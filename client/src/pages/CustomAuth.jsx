@@ -152,11 +152,23 @@ const CustomAuth = () => {
 
   if (showClerkSignIn) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="relative z-10">
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #ffc0e3 0%, #b8e0ff 33%, #b8f5d4 66%, #fff5ba 100%)',
+          backgroundSize: '400% 400%',
+          animation: 'gradient 15s ease infinite'
+        }}>
+        <style>{`
+          @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
+        <div className="relative z-10 w-full max-w-md">
           <button
             onClick={() => setShowClerkSignIn(false)}
-            className="absolute -top-10 left-0 text-white hover:text-green-400 transition-colors"
+            className="absolute -top-12 left-0 text-white hover:text-gray-100 transition-colors font-medium drop-shadow-lg"
           >
             ← Back
           </button>
@@ -166,7 +178,7 @@ const CustomAuth = () => {
               baseTheme: undefined,
               elements: {
                 rootBox: "mx-auto",
-                card: "bg-gray-900 shadow-xl"
+                card: "bg-white/95 backdrop-blur-xl shadow-2xl border border-white/20"
               }
             }}
           />

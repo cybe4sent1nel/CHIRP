@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImageIcon, SendHorizonal, Phone, Video, FileText, X, ArrowLeft, MoreVertical } from "lucide-react";
+import { ImageIcon, SendHorizonal, Phone, Video, FileText, X, ArrowLeft, MoreVertical, Eye } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
@@ -16,6 +16,10 @@ import MessageActions from "../components/MessageActions";
 import UserStatus from "../components/UserStatus";
 import UserActionsPopover from "../components/UserActionsPopover";
 import SpeechToText from "../components/SpeechToText";
+import EmojiGifPicker from "../components/EmojiGifPicker";
+import MediaEditor from "../components/MediaEditor";
+import CloudUploadLoader from "../components/CloudUploadLoader";
+import ViewOnceMedia from "../components/ViewOnceMedia";
 
 const Chat = () => {
   const {messages} = useSelector((state) => state.messages);
@@ -27,6 +31,7 @@ const Chat = () => {
   const [user, setUser] = useState(null);
   const [isInCall, setIsInCall] = useState(false);
   const [callType, setCallType] = useState('voice');
+  const [callDuration, setCallDuration] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showMessageInfo, setShowMessageInfo] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState(null);
@@ -38,18 +43,40 @@ const Chat = () => {
   const [showUserActions, setShowUserActions] = useState(false);
   const { userId: currentUserId } = useAuth();
   const navigate = useNavigate();
+  const [editingMedia, setEditingMedia] = useState(null);
+  const [mediaType, setMediaType] = useState('image');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
+  const [allowSave, setAllowSave] = useState(true);
 
   const messagesEndRef = useRef(null);
 
   const startCall = (type) => {
+    // Check for browser support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error('Your browser does not support audio/video calls. Please use a modern browser like Chrome, Firefox, or Edge.');
+      return;
+    }
+
     setCallType(type);
     setIsInCall(true);
-    toast.success(`Starting ${type} call with ${user?.full_name}`);
+    toast.success(`Starting ${type} call with ${user?.full_name}...`, {
+      icon: type === 'video' ? '📹' : '📞',
+      duration: 2000
+    });
   };
 
-  const endCall = () => {
+  const endCall = (duration = 0) => {
     setIsInCall(false);
-    toast.success('Call ended');
+    setCallDuration(duration);
+    const durationText = duration > 0 
+      ? `${Math.floor(duration / 60)}m ${duration % 60}s` 
+      : 'a few seconds';
+    toast.success(`Call ended - Duration: ${durationText}`, {
+      icon: '📵',
+      duration: 3000
+    });
   };
 
   const connections = useSelector((state) => state.connections.connections)
@@ -69,7 +96,9 @@ const Chat = () => {
 
   const sendMessage = async (fileToSend = null) => {
     try {
-      if (!text && !image && !fileToSend) return;
+      setUploading(true);
+      setUploadProgress(0);
+      
       const token = await getToken();
       const formData = new FormData();
       formData.append('to_user_id', userId)
@@ -79,20 +108,57 @@ const Chat = () => {
       const fileData = fileToSend || image;
       if (fileData) {
         formData.append('file', fileData);
+        formData.append('view_once', sendAsViewOnce);
+        formData.append('allow_save', allowSave);
       }
 
       const {data} = await api.post('/api/message/send', formData, {
-        headers: {Authorization: `Bearer ${token}`}
+        headers: {Authorization: `Bearer ${token}`},
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(progress);
+        },
       })
       if(data.success){
         setText('')
         setImage(null)
+        setSendAsViewOnce(false);
+        setAllowSave(true);
         dispatch(addMessage(data.message))
       } else {
         throw new Error(data.message )
       }
     } catch (error) {
       toast.error(error.message)
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    setText(prev => prev + emoji);
+  };
+
+  const handleGifSelect = async (gifUrl) => {
+    try {
+      const token = await getToken();
+      const {data} = await api.post('/api/message/send', {
+        to_user_id: userId,
+        text: gifUrl,
+        message_type: 'gif'
+      }, {
+        headers: {Authorization: `Bearer ${token}`}
+      });
+      
+      if(data.success){
+        dispatch(addMessage(data.message));
+        toast.success('GIF sent!');
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
     }
   };
 
@@ -117,6 +183,20 @@ const Chat = () => {
     } catch (error) {
       toast.error('Failed to send voice note');
     }
+  };
+
+  const handleMediaSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const type = file.type.startsWith('video/') ? 'video' : 'image';
+      setMediaType(type);
+      setEditingMedia(file);
+    }
+  };
+
+  const handleMediaSave = (editedFile) => {
+    sendMessage(editedFile);
+    setEditingMedia(null);
   };
 
   const handleEditMessage = async () => {
@@ -242,15 +322,25 @@ const Chat = () => {
           <div className="flex items-center gap-2 relative">
             <button
               onClick={() => startCall('voice')}
-              className="p-2.5 rounded-full bg-white hover:bg-green-50 border border-gray-200 hover:border-green-300 text-gray-600 hover:text-green-600 transition-all shadow-sm"
-              title="Voice Call"
+              disabled={isInCall}
+              className={`p-2.5 rounded-full bg-white border border-gray-200 transition-all shadow-sm ${
+                isInCall 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-green-50 hover:border-green-300 text-gray-600 hover:text-green-600'
+              }`}
+              title={isInCall ? 'Already in a call' : 'Voice Call'}
             >
               <Phone size={18} />
             </button>
             <button
               onClick={() => startCall('video')}
-              className="p-2.5 rounded-full bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-600 hover:text-blue-600 transition-all shadow-sm"
-              title="Video Call"
+              disabled={isInCall}
+              className={`p-2.5 rounded-full bg-white border border-gray-200 transition-all shadow-sm ${
+                isInCall 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-blue-50 hover:border-blue-300 text-gray-600 hover:text-blue-600'
+              }`}
+              title={isInCall ? 'Already in a call' : 'Video Call'}
             >
               <Video size={18} />
             </button>
@@ -336,23 +426,56 @@ const Chat = () => {
                       </div>
                     )}
 
-                    {/* Image */}
-                    {message.message_type === "image" && (
-                      <img
-                        src={message.message_url || message.media_url}
-                        className="w-full max-w-sm rounded-lg mb-1"
-                        alt="Message image"
+                    {/* View Once Media */}
+                    {message.view_once && (message.message_type === "image" || message.message_type === "video") && (
+                      <ViewOnceMedia
+                        message={message}
+                        currentUserId={currentUserId}
+                        allowSave={message.allow_save}
+                        onViewed={async (messageId) => {
+                          try {
+                            const token = await getToken();
+                            await api.post(`/api/message/mark-viewed/${messageId}`, {}, {
+                              headers: { Authorization: `Bearer ${token}` }
+                            });
+                          } catch (error) {
+                            console.error('Failed to mark as viewed:', error);
+                          }
+                        }}
                       />
                     )}
 
-                    {/* Video */}
-                    {message.message_type === "video" && (
-                      <div className="mb-2">
-                        <VideoPlayer 
-                          src={message.message_url || message.media_url}
-                          fileName={message.file_name || "video.mp4"}
-                        />
-                      </div>
+                    {/* Regular Media (Non-View Once) */}
+                    {!message.view_once && (
+                      <>
+                        {/* GIF */}
+                        {message.message_type === "gif" && (
+                          <img
+                            src={message.text}
+                            className="w-full max-w-sm rounded-lg mb-1"
+                            alt="GIF"
+                          />
+                        )}
+
+                        {/* Image */}
+                        {message.message_type === "image" && (
+                          <img
+                            src={message.message_url || message.media_url}
+                            className="w-full max-w-sm rounded-lg mb-1"
+                            alt="Message image"
+                          />
+                        )}
+
+                        {/* Video */}
+                        {message.message_type === "video" && (
+                          <div className="mb-2">
+                            <VideoPlayer 
+                              src={message.message_url || message.media_url}
+                              fileName={message.file_name || "video.mp4"}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Audio/Voice Note */}
@@ -483,9 +606,7 @@ const Chat = () => {
                   {image.type.startsWith('image/') ? (
                     <img src={URL.createObjectURL(image)} className="h-16 w-16 rounded object-cover" alt="Preview" />
                   ) : image.type.startsWith('video/') ? (
-                    <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center">
-                      <Video className="text-gray-500" size={32} />
-                    </div>
+                    <video src={URL.createObjectURL(image)} className="h-16 w-16 rounded object-cover" />
                   ) : (
                     <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center">
                       <FileText className="text-gray-500" size={32} />
@@ -493,7 +614,10 @@ const Chat = () => {
                   )}
                   <div>
                     <p className="font-semibold text-sm text-gray-800 truncate max-w-xs">{image.name}</p>
-                    <p className="text-xs text-gray-500">{(image.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="text-xs text-gray-500">
+                      {image.type.startsWith('video/') ? '🎥 Video • ' : image.type.startsWith('audio/') ? '🎵 Audio • ' : ''}
+                      {(image.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
                   </div>
                 </div>
                 <button
@@ -503,10 +627,43 @@ const Chat = () => {
                   <X size={18} className="text-gray-600" />
                 </button>
               </div>
+              
+              {/* View Once & Save Options */}
+              {(image.type.startsWith('image/') || image.type.startsWith('video/')) && (
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={sendAsViewOnce}
+                      onChange={(e) => setSendAsViewOnce(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                    />
+                    <Eye className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                      Send as View Once
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={allowSave}
+                      onChange={(e) => setAllowSave(e.target.checked)}
+                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                      Allow recipient to save
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 
           <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
+            <EmojiGifPicker 
+              onEmojiSelect={handleEmojiSelect}
+              onGifSelect={handleGifSelect}
+            />
             <input
               type="text"
               className="flex-1 outline-none text-slate-700"
@@ -530,7 +687,7 @@ const Chat = () => {
                 id="file"
                 accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
                 hidden
-                onChange={(e) => setImage(e.target.files[0])}
+                onChange={handleMediaSelect}
               />
             </label>
             <SpeechToText 
@@ -555,9 +712,11 @@ const Chat = () => {
         {isInCall && (
           <CallWindow
             callType={callType}
+            otherUserId={userId}
             otherUserName={user.full_name}
             otherUserPhoto={user.profile_picture}
             onEndCall={endCall}
+            callId={Date.now().toString()}
           />
         )}
 
@@ -572,7 +731,22 @@ const Chat = () => {
             }}
           />
         )}
-      </div>
+
+        {/* Media Editor Modal */}
+        {editingMedia && (
+          <MediaEditor
+            file={editingMedia}
+            type={mediaType}
+            onSave={handleMediaSave}
+            onCancel={() => setEditingMedia(null)}
+          />
+        )}
+        {/* Upload Progress Loader */}
+        <CloudUploadLoader 
+          isLoading={uploading} 
+          progress={uploadProgress}
+          showProgress={true}
+        />      </div>
     )
   );
 };

@@ -3,6 +3,7 @@ import { inngest } from "../inngest/index.js";
 import Connection from "../models/Connection.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 import fs from "fs";
 
 // Get User data using userId
@@ -24,7 +25,15 @@ export const updateUserData = async (req, res) => {
   try {
     const { userId } = req.auth();
 
-    let { username, bio, location, full_name } = req.body;
+    let { username, bio, location, full_name, job_title, company, country, city, website,
+          linkedin, github, twitter, education, experience, certificates, skills, privacy_settings } = req.body;
+
+    // Parse JSON strings if they exist
+    if (typeof education === 'string') education = JSON.parse(education);
+    if (typeof experience === 'string') experience = JSON.parse(experience);
+    if (typeof certificates === 'string') certificates = JSON.parse(certificates);
+    if (typeof skills === 'string') skills = JSON.parse(skills);
+    if (typeof privacy_settings === 'string') privacy_settings = JSON.parse(privacy_settings);
 
     const tempUser = await User.findById(userId);
     if (!tempUser) {
@@ -46,7 +55,25 @@ export const updateUserData = async (req, res) => {
       }
     }
 
-    let updatedData = { username, bio, location, full_name };
+    let updatedData = { 
+      username, 
+      bio, 
+      location, 
+      full_name,
+      job_title,
+      company,
+      country,
+      city,
+      website,
+      linkedin,
+      github,
+      twitter,
+      education,
+      experience,
+      certificates,
+      skills,
+      privacy_settings
+    };
 
     const profile = req.files?.profile?.[0];
     const cover = req.files?.cover?.[0];
@@ -313,12 +340,50 @@ export const acceptConnectionRequest = async (req, res) => {
 export const getUserProfiles = async (req, res) => {
   try {
     const {profileId} = req.body
+    const viewerId = req.auth()?.userId || null; // Get viewer ID if authenticated
+    
     console.log(profileId)
     const profile = await User.findById(profileId)
     if(!profile){
       return res.json({success: false, message: 'Profile not found'})
     }
-    const posts = await Post.find({user: profileId}).populate('user')
+
+    // Track profile view if viewer is authenticated and not viewing own profile
+    if (viewerId && viewerId !== profileId) {
+      // Check if this viewer already viewed this profile recently (within last 24 hours)
+      const recentView = profile.profile_views?.find(
+        view => view.viewer === viewerId && 
+        Date.now() - new Date(view.viewedAt).getTime() < 24 * 60 * 60 * 1000
+      );
+
+      if (!recentView) {
+        // Add profile view
+        await User.findByIdAndUpdate(profileId, {
+          $push: { profile_views: { viewer: viewerId, viewedAt: new Date() } },
+          $inc: { unique_viewers: 1 }
+        });
+
+        // Check notification settings before sending
+        if (profile.notification_settings?.profileViewNotifications !== false) {
+          // Get viewer details
+          const viewer = await User.findById(viewerId).select('full_name username profile_picture');
+          
+          // Create notification
+          const notification = new Notification({
+            recipient: profileId,
+            sender: viewerId,
+            type: 'profile_view',
+            message: `${viewer.full_name} viewed your profile`,
+            link: `/profile/${viewerId}`
+          });
+          await notification.save();
+        }
+      }
+    }
+
+    const posts = await Post.find({user: profileId})
+      .populate('user')
+      .populate('likes_count', '_id full_name username profile_picture')
 
     res.json({success: true, profile, posts})
   } catch (error) {
@@ -326,3 +391,30 @@ export const getUserProfiles = async (req, res) => {
     res.status(500).json({success: false, message: error.message})
   }
 }
+
+// Search users for @mentions
+export const searchUsers = async (req, res) => {
+  try {
+    const { q, limit = 10 } = req.query;
+    
+    let query = {};
+    if (q) {
+      query = {
+        $or: [
+          { username: { $regex: q, $options: 'i' } },
+          { full_name: { $regex: q, $options: 'i' } }
+        ]
+      };
+    }
+    
+    const users = await User.find(query)
+      .select('_id username full_name profile_picture')
+      .limit(parseInt(limit));
+    
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

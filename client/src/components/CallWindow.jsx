@@ -1,28 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
+import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 const CallWindow = ({
     callType = 'voice',
+    otherUserId,
     otherUserName,
     otherUserPhoto,
     onEndCall,
-    isIncoming = false
+    isIncoming = false,
+    callId = null
 }) => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
+    const peerConnectionRef = useRef(null);
     const [isMicMuted, setIsMicMuted] = useState(false);
     const [isVideoPaused, setIsVideoPaused] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
     const [callStatus, setCallStatus] = useState(isIncoming ? 'incoming' : 'calling');
     const [localStream, setLocalStream] = useState(null);
     const durationIntervalRef = useRef(null);
+    const { getToken } = useAuth();
+    const iceServersRef = useRef([
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+    ]);
 
     useEffect(() => {
         const initializeMedia = async () => {
             try {
                 const constraints = {
-                    audio: true,
-                    video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: callType === 'video' ? { 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    } : false
                 };
 
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -32,31 +52,120 @@ const CallWindow = ({
                     localVideoRef.current.srcObject = stream;
                 }
 
-                // Simulate call being answered after 3 seconds
-                setTimeout(() => {
-                    setCallStatus('connected');
-                    durationIntervalRef.current = setInterval(() => {
-                        setCallDuration(prev => prev + 1);
-                    }, 1000);
-                }, 3000);
+                // Initialize WebRTC connection
+                await initializePeerConnection(stream);
+
+                // If outgoing call, send call notification
+                if (!isIncoming) {
+                    await sendCallNotification();
+                }
 
             } catch (error) {
                 console.error('Error accessing media devices:', error);
+                toast.error('Could not access camera/microphone');
                 setCallStatus('failed');
+                setTimeout(() => onEndCall(), 2000);
             }
         };
 
         initializeMedia();
 
         return () => {
-            if (durationIntervalRef.current) {
-                clearInterval(durationIntervalRef.current);
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
+            cleanupCall();
         };
     }, [callType]);
+
+    const initializePeerConnection = async (stream) => {
+        try {
+            const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
+            peerConnectionRef.current = pc;
+
+            // Add local stream tracks to peer connection
+            stream.getTracks().forEach(track => {
+                pc.addTrack(track, stream);
+            });
+
+            // Handle incoming tracks
+            pc.ontrack = (event) => {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = event.streams[0];
+                    setCallStatus('connected');
+                    startCallTimer();
+                }
+            };
+
+            // Handle ICE candidates
+            pc.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    await sendICECandidate(event.candidate);
+                }
+            };
+
+            // Handle connection state changes
+            pc.onconnectionstatechange = () => {
+                console.log('Connection state:', pc.connectionState);
+                if (pc.connectionState === 'connected') {
+                    setCallStatus('connected');
+                    startCallTimer();
+                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    handleEndCall();
+                }
+            };
+
+        } catch (error) {
+            console.error('Error initializing peer connection:', error);
+            toast.error('Connection failed');
+        }
+    };
+
+    const sendCallNotification = async () => {
+        try {
+            const token = await getToken();
+            await api.post('/api/call/initiate', {
+                recipientId: otherUserId,
+                callType,
+                callId: Date.now().toString()
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error('Error sending call notification:', error);
+        }
+    };
+
+    const sendICECandidate = async (candidate) => {
+        try {
+            const token = await getToken();
+            await api.post('/api/call/ice-candidate', {
+                recipientId: otherUserId,
+                candidate
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error('Error sending ICE candidate:', error);
+        }
+    };
+
+    const startCallTimer = () => {
+        if (!durationIntervalRef.current) {
+            durationIntervalRef.current = setInterval(() => {
+                setCallDuration(prev => prev + 1);
+            }, 1000);
+        }
+    };
+
+    const cleanupCall = () => {
+        if (durationIntervalRef.current) {
+            clearInterval(durationIntervalRef.current);
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+        }
+    };
 
     const formatDuration = (seconds) => {
         const hours = Math.floor(seconds / 3600);
@@ -89,21 +198,53 @@ const CallWindow = ({
         }
     };
 
-    const handleEndCall = () => {
-        if (durationIntervalRef.current) {
-            clearInterval(durationIntervalRef.current);
+    const handleEndCall = async () => {
+        try {
+            const duration = callDuration;
+            cleanupCall();
+            const token = await getToken();
+            await api.post('/api/call/end', {
+                recipientId: otherUserId,
+                callId
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            onEndCall(duration);
+        } catch (error) {
+            console.error('Error ending call:', error);
+            onEndCall(callDuration);
         }
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        onEndCall();
     };
 
-    const handleAcceptCall = () => {
-        setCallStatus('connected');
-        durationIntervalRef.current = setInterval(() => {
-            setCallDuration(prev => prev + 1);
-        }, 1000);
+    const handleAcceptCall = async () => {
+        try {
+            setCallStatus('connecting');
+            const token = await getToken();
+            
+            // Send accept signal
+            await api.post('/api/call/accept', {
+                callerId: otherUserId,
+                callId
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            // Create answer for WebRTC
+            if (peerConnectionRef.current) {
+                const answer = await peerConnectionRef.current.createAnswer();
+                await peerConnectionRef.current.setLocalDescription(answer);
+                
+                await api.post('/api/call/answer', {
+                    recipientId: otherUserId,
+                    answer
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+            }
+        } catch (error) {
+            console.error('Error accepting call:', error);
+            toast.error('Failed to accept call');
+        }
     };
 
     return (
@@ -151,11 +292,17 @@ const CallWindow = ({
                             <div className="text-center">
                                 <h2 className="text-3xl font-bold text-white mb-2">{otherUserName}</h2>
                                 <p className="text-gray-300 text-lg">
-                                    {callStatus === 'calling' && 'Calling...'}
+                                    {callStatus === 'calling' && 'Ringing...'}
                                     {callStatus === 'incoming' && 'Incoming call...'}
+                                    {callStatus === 'connecting' && 'Connecting...'}
                                     {callStatus === 'connected' && formatDuration(callDuration)}
-                                    {callStatus === 'failed' && 'Call failed'}
+                                    {callStatus === 'failed' && 'Call failed - Check permissions'}
                                 </p>
+                                {callStatus === 'failed' && (
+                                    <p className="text-red-400 text-sm mt-2">
+                                        Please allow camera/microphone access in your browser settings
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}

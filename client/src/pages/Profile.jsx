@@ -7,6 +7,7 @@ import PostCard from "../components/PostCard";
 import moment from 'moment'
 import { Link } from "react-router-dom";
 import ProfileModal from "../components/ProfileModal";
+import ExtendedProfileModal from "../components/ExtendedProfileModal";
 import {useAuth} from '@clerk/clerk-react'
 import api from '../api/axios.js'
 import {toast} from 'react-hot-toast'
@@ -68,19 +69,6 @@ const Profile = () => {
             profileId={profileId}
             setShowEdit={setShowEdit}
           />
-          {/* QR Code Button - Only show for own profile */}
-          {!profileId && (
-            <div className="flex justify-center pt-4 px-6 border-t border-gray-100">
-              <button
-                onClick={() => navigate("/profile-qr")}
-                className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-all active:scale-95 shadow-lg hover:shadow-xl"
-                title="Generate your profile QR code"
-              >
-                <QrCode className="w-5 h-5" />
-                Generate My QR Code
-              </button>
-            </div>
-          )}
         </div>
         {/* Tabs */}
         <div className="mt-6">
@@ -140,7 +128,7 @@ const Profile = () => {
         </div>
       </div>
       {/* Edit Profile Modal */}
-      {showEdit && <ProfileModal setShowEdit={setShowEdit} />}
+      {showEdit && <ExtendedProfileModal setShowEdit={setShowEdit} />}
     </div>
   ) : (
     <Loading />

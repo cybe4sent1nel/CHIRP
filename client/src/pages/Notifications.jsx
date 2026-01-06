@@ -1,6 +1,10 @@
-import { useState } from "react";
-import { Bell, Heart, MessageCircle, UserPlus, CheckCircle, X, CheckCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Heart, MessageCircle, UserPlus, CheckCircle, X, CheckCheck, Repeat2 } from "lucide-react";
 import moment from "moment";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const dummyNotifications = [
   {
@@ -52,6 +56,7 @@ const filterTabs = [
   { key: "unread", label: "Unread" },
   { key: "like", label: "Likes" },
   { key: "comment", label: "Comments" },
+  { key: "repost", label: "Reposts" },
   { key: "connection", label: "Connections" },
 ];
 
@@ -61,10 +66,12 @@ const getIcon = (type) => {
       return <Heart className="w-5 h-5 text-red-500" />;
     case "comment":
       return <MessageCircle className="w-5 h-5 text-blue-500" />;
+    case "repost":
+      return <Repeat2 className="w-5 h-5 text-green-500" />;
     case "follow":
-      return <UserPlus className="w-5 h-5 text-green-500" />;
+      return <UserPlus className="w-5 h-5 text-purple-500" />;
     case "connection":
-      return <CheckCircle className="w-5 h-5 text-purple-500" />;
+      return <CheckCircle className="w-5 h-5 text-indigo-500" />;
     default:
       return <Bell className="w-5 h-5 text-gray-500" />;
   }
@@ -72,10 +79,33 @@ const getIcon = (type) => {
 
 const Notifications = () => {
   const [filter, setFilter] = useState("all");
-  const [notifications, setNotifications] = useState(() => {
-    const saved = localStorage.getItem("notifications");
-    return saved ? JSON.parse(saved) : dummyNotifications;
-  });
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
+
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get('/api/notification/user?limit=50', {
+        headers: { Authorization: `Bearer ${await getToken()}` }
+      });
+      
+      if (data.success) {
+        setNotifications(data.notifications);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+      toast.error('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -86,22 +116,54 @@ const Notifications = () => {
     return notification.type === filter;
   });
 
-  const handleDelete = (id) => {
-    const updated = notifications.filter((n) => n.id !== id);
-    setNotifications(updated);
-    localStorage.setItem("notifications", JSON.stringify(updated));
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/api/notification/${id}`, {
+        headers: { Authorization: `Bearer ${await getToken()}` }
+      });
+      
+      setNotifications(prev => prev.filter(n => n._id !== id));
+      toast.success('Notification deleted');
+    } catch (error) {
+      toast.error('Failed to delete notification');
+    }
   };
 
-  const handleMarkAsRead = (id) => {
-    const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-    setNotifications(updated);
-    localStorage.setItem("notifications", JSON.stringify(updated));
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.put(`/api/notification/read/${id}`, {}, {
+        headers: { Authorization: `Bearer ${await getToken()}` }
+      });
+      
+      setNotifications(prev => 
+        prev.map(n => n._id === id ? { ...n, read: true } : n)
+      );
+    } catch (error) {
+      toast.error('Failed to mark as read');
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    setNotifications(updated);
-    localStorage.setItem("notifications", JSON.stringify(updated));
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.put('/api/notification/read-all', {}, {
+        headers: { Authorization: `Bearer ${await getToken()}` }
+      });
+      
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      toast.success('All notifications marked as read');
+    } catch (error) {
+      toast.error('Failed to mark all as read');
+    }
+  };
+
+  const handleNotificationClick = (notification) => {
+    if (!notification.read) {
+      handleMarkAsRead(notification._id);
+    }
+    
+    if (notification.link) {
+      navigate(notification.link);
+    }
   };
 
   return (
@@ -150,7 +212,11 @@ const Notifications = () => {
         </div>
 
         <div className="divide-y divide-gray-100">
-          {filteredNotifications.length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center">
+              <p className="text-gray-500 text-lg">Loading notifications...</p>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
             <div className="p-12 text-center">
               <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">No notifications to show</p>
@@ -159,12 +225,19 @@ const Notifications = () => {
           ) : (
             filteredNotifications.map((notification) => (
               <div
-                key={notification.id}
-                onClick={() => handleMarkAsRead(notification.id)}
+                key={notification._id}
+                onClick={() => handleNotificationClick(notification)}
                 className={`group flex items-start gap-4 p-4 hover:bg-white/50 cursor-pointer transition-colors ${
                   !notification.read ? "bg-indigo-50/50" : "bg-white/30"
                 }`}
               >
+                {/* User Avatar */}
+                <img
+                  src={notification.sender?.profile_picture || '/default-avatar.png'}
+                  alt={notification.sender?.full_name}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                />
+
                 <div className={`flex-shrink-0 p-2.5 rounded-full ${
                   !notification.read ? "bg-white shadow-md" : "bg-gray-100"
                 }`}>
@@ -181,14 +254,14 @@ const Notifications = () => {
                     </p>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {moment(notification.timestamp).fromNow()}
+                    {moment(notification.createdAt).fromNow()}
                   </p>
                 </div>
 
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDelete(notification.id);
+                    handleDelete(notification._id);
                   }}
                   className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                 >

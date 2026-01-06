@@ -10,6 +10,7 @@ import {
   deleteMessageForEveryone,
   markMessagesAsRead,
   getUnreadCounts,
+  markMessageAsViewed,
 } from "../controllers/messageController.js";
 import { upload } from "../configs/multer.js"; 
 import { protect } from "../middlewares/auth.js";
@@ -22,6 +23,7 @@ messageRouter.post("/send", upload.any(), protect, sendMessage);
 messageRouter.post("/get", protect, getChatMessages);
 messageRouter.post("/mark-read", protect, markMessagesAsRead);
 messageRouter.get("/unread-counts", protect, getUnreadCounts);
+messageRouter.post("/mark-viewed/:messageId", protect, markMessageAsViewed);
 messageRouter.put("/:id", protect, editMessage);
 messageRouter.post("/forward", protect, forwardMessage);
 messageRouter.post("/:id/star", protect, starMessage);

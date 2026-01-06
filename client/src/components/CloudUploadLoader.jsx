@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Cloud, Upload } from 'lucide-react';
 
-const CloudUploadLoader = ({ isLoading = false, message = "Uploading" }) => {
+const CloudUploadLoader = ({ 
+  isLoading = false, 
+  message = "Uploading", 
+  progress = 0,
+  showProgress = false 
+}) => {
   const [messageIndex, setMessageIndex] = useState(0);
 
   const wittyMessages = [
@@ -51,10 +56,17 @@ const CloudUploadLoader = ({ isLoading = false, message = "Uploading" }) => {
 
           <MessageContainer>
             <p className="loading-message">{wittyMessages[messageIndex]}</p>
+            {showProgress && (
+              <p className="progress-text">{Math.round(progress)}% complete</p>
+            )}
           </MessageContainer>
 
           <ProgressLine>
-            <ProgressBar />
+            {showProgress ? (
+              <ProgressBarDetermined style={{ width: `${progress}%` }} />
+            ) : (
+              <ProgressBar />
+            )}
           </ProgressLine>
         </LoaderBox>
       </OverlayContainer>
@@ -232,21 +244,33 @@ const MessageContainer = styled.div`
   text-align: center;
   min-height: 40px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-`;
+  gap: 8px;
 
-const p = styled.p`
-  font-size: 14px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-  animation: fade-in-out 2.5s ease-in-out infinite;
-  letter-spacing: 0.5px;
-  line-height: 1.4;
+  .loading-message {
+    font-size: 14px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    animation: fade-in-out 2.5s ease-in-out infinite;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+  }
+
+  .progress-text {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+  }
 `;
 
 const ProgressLine = styled.div`
@@ -283,6 +307,13 @@ const ProgressBar = styled.div`
       opacity: 1;
     }
   }
+`;
+
+const ProgressBarDetermined = styled.div`
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease-out;
+  border-radius: 2px;
 `;
 
 export default CloudUploadLoader;

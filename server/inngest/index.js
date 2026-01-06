@@ -4,6 +4,7 @@ import Connection from "../models/Connection.js";
 import sendEmail from "../configs/nodeMailer.js";
 import Message from "../models/Message.js";
 import Story from "../models/Story.js";
+import Post from "../models/Post.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ 
@@ -213,6 +214,149 @@ const sendEmailFunction = inngest.createFunction(
   }
 );
 
+// Weekly Post Analytics Email Report
+const sendWeeklyAnalyticsReport = inngest.createFunction(
+  { 
+    id: "send-weekly-analytics-report",
+    cron: "0 9 * * 1" // Every Monday at 9 AM
+  },
+  { cron: "0 9 * * 1" },
+  async ({ step }) => {
+    // Get all users who have enabled email reports
+    const users = await step.run("fetch-users-with-analytics", async () => {
+      return await User.find({ 
+        "settings.emailAnalyticsEnabled": true 
+      });
+    });
+
+    for (const user of users) {
+      await step.run(`send-report-${user._id}`, async () => {
+        // Get user's posts from last week
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+        const posts = await Post.find({
+          user: user._id,
+          createdAt: { $gte: oneWeekAgo }
+        }).sort({ createdAt: -1 });
+
+        if (posts.length === 0) return;
+
+        // Calculate total analytics
+        const totalImpressions = posts.reduce((sum, post) => sum + (post.impressions || 0), 0);
+        const totalLikes = posts.reduce((sum, post) => sum + (post.likes_count || 0), 0);
+        const totalComments = posts.reduce((sum, post) => sum + (post.comments_count || 0), 0);
+        const totalShares = posts.reduce((sum, post) => sum + (post.shares_count || 0), 0);
+
+        // Create HTML email
+        const emailBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: 'Segoe UI', Arial, sans-serif; background: #f9fafb; padding: 20px; }
+              .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 28px; }
+              .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0 0; }
+              .content { padding: 32px; }
+              .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0; }
+              .stat-card { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 20px; border-radius: 8px; text-align: center; }
+              .stat-value { font-size: 32px; font-weight: bold; color: #0369a1; margin: 8px 0; }
+              .stat-label { color: #64748b; font-size: 14px; }
+              .post-item { background: #f9fafb; padding: 16px; border-radius: 8px; margin: 12px 0; border-left: 4px solid #6366f1; }
+              .post-stats { display: flex; gap: 16px; margin-top: 12px; font-size: 14px; color: #64748b; }
+              .footer { background: #f9fafb; padding: 24px; text-align: center; color: #64748b; font-size: 14px; }
+              .cta-button { display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin: 20px 0; font-weight: 600; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🎉 Your Weekly Analytics Report</h1>
+                <p>Week of ${new Date(oneWeekAgo).toLocaleDateString()} - ${new Date().toLocaleDateString()}</p>
+              </div>
+              
+              <div class="content">
+                <h2 style="color: #1e293b; margin-bottom: 8px;">Hi ${user.full_name}!</h2>
+                <p style="color: #64748b; line-height: 1.6;">
+                  Here's how your posts performed this week. Keep up the great work! 🚀
+                </p>
+
+                <div class="stats-grid">
+                  <div class="stat-card" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);">
+                    <div class="stat-value" style="color: #1e40af;">${totalImpressions.toLocaleString()}</div>
+                    <div class="stat-label">Total Impressions</div>
+                  </div>
+                  <div class="stat-card" style="background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);">
+                    <div class="stat-value" style="color: #be185d;">${totalLikes}</div>
+                    <div class="stat-label">Likes</div>
+                  </div>
+                  <div class="stat-card" style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);">
+                    <div class="stat-value" style="color: #065f46;">${totalComments}</div>
+                    <div class="stat-label">Comments</div>
+                  </div>
+                  <div class="stat-card" style="background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);">
+                    <div class="stat-value" style="color: #3730a3;">${totalShares}</div>
+                    <div class="stat-label">Shares</div>
+                  </div>
+                </div>
+
+                <h3 style="color: #1e293b; margin: 32px 0 16px 0;">📊 Your Top Posts</h3>
+                ${posts.slice(0, 3).map((post, index) => `
+                  <div class="post-item">
+                    <strong style="color: #1e293b;">#${index + 1} Post</strong>
+                    <p style="color: #64748b; margin: 8px 0; line-height: 1.5;">
+                      ${post.content ? post.content.substring(0, 100) + (post.content.length > 100 ? '...' : '') : 'Media post'}
+                    </p>
+                    <div class="post-stats">
+                      <span>👁️ ${post.impressions || 0} views</span>
+                      <span>❤️ ${post.likes_count || 0} likes</span>
+                      <span>💬 ${post.comments_count || 0} comments</span>
+                    </div>
+                  </div>
+                `).join('')}
+
+                <div style="text-align: center;">
+                  <a href="${process.env.CLIENT_URL}/profile" class="cta-button">
+                    View Full Analytics Dashboard
+                  </a>
+                </div>
+
+                <div style="background: #f0f9ff; padding: 16px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #0284c7;">
+                  <p style="margin: 0; color: #0c4a6e; font-weight: 600;">💡 Pro Tip</p>
+                  <p style="margin: 8px 0 0 0; color: #0369a1; font-size: 14px; line-height: 1.6;">
+                    Posts with images get 2.3x more engagement. Try adding visuals to your next post!
+                  </p>
+                </div>
+              </div>
+
+              <div class="footer">
+                <p>You're receiving this email because you enabled weekly analytics reports.</p>
+                <p style="margin-top: 8px;">
+                  <a href="${process.env.CLIENT_URL}/settings" style="color: #6366f1;">Manage email preferences</a>
+                </p>
+                <p style="margin-top: 16px;">© ${new Date().getFullYear()} Chirp. All rights reserved.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+
+        await sendEmail({
+          to: user.email,
+          subject: `📊 Your Weekly Analytics Report - ${totalImpressions.toLocaleString()} impressions!`,
+          body: emailBody
+        });
+
+        console.log(`Weekly analytics report sent to ${user.email}`);
+      });
+    }
+
+    return { success: true, reportsSent: users.length };
+  }
+);
+
 // Export future Inngest functions
 export const functions = [
   syncUserCreation,
@@ -222,5 +366,6 @@ export const functions = [
   deleteStory,
   sendNotificationOfUnseenMessages,
   cleanupExpiredStories,
-  sendEmailFunction
+  sendEmailFunction,
+  sendWeeklyAnalyticsReport
 ];

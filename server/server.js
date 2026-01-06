@@ -29,6 +29,12 @@ import newsRouter from "./routes/newsRoutes.js";
 import channelRouter from "./routes/channelRoutes.js";
 import safetyRouter from "./routes/safetyRoutes.js";
 import authRouter from "./routes/authRoutes.js";
+import notificationRouter from "./routes/notificationRoutes.js";
+import callRouter from "./routes/callRoutes.js";
+import commentRouter from "./routes/commentRoutes.js";
+import gameRouter from "./routes/gameRoutes.js";
+import analyticsRouter from "./routes/analytics.js";
+import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
 
@@ -44,12 +50,6 @@ app.use(cors({
 
 // Health check route
 app.get("/", (req, res) => res.send("Server is running"));
-
-// SSE route BEFORE middleware - bypass authentication for streaming
-app.get("/api/message/:userId", (req, res) => {
-  console.log("SSE route handler called for userId:", req.params.userId);
-  sseController(req, res);
-});
 
 // Now apply middleware for remaining routes
 app.use(express.json());
@@ -94,11 +94,26 @@ app.use('/api/user', userRouter)
 app.use('/api/post', postRouter) 
 app.use('/api/story', storyRouter) 
 app.use('/api/message', messageRouter)
+
+// SSE route for real-time messages - Must be AFTER message router to avoid conflicts
+app.get("/api/message/:userId", (req, res) => {
+  console.log("SSE route handler called for userId:", req.params.userId);
+  sseController(req, res);
+});
+
 app.use('/api/ai', aiRouter)
 app.use('/api/news', newsRouter)
 app.use('/api/channels', channelRouter)
 app.use('/api/safety', safetyRouter)
+app.use('/api/notification', notificationRouter)
+app.use('/api/call', callRouter)
+app.use('/api/comment', commentRouter)
+app.use('/api', analyticsRouter)
+app.use('/api/games', gameRouter)
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+
+// Setup WebSocket for games
+setupGameWebSocket(server);

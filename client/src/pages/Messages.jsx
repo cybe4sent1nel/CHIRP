@@ -16,10 +16,23 @@ const Messages = () => {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [totalUnread, setTotalUnread] = useState(0);
 
-  const filteredConnections = connections.filter(user =>
-    user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredConnections = connections
+    .filter(user =>
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Sort by unread count first (higher first), then alphabetically
+      const unreadA = unreadCounts[a._id] || 0;
+      const unreadB = unreadCounts[b._id] || 0;
+      
+      if (unreadA !== unreadB) {
+        return unreadB - unreadA; // Higher unread count first
+      }
+      
+      // If both have same unread count, sort alphabetically
+      return a.full_name.localeCompare(b.full_name);
+    });
 
   // Fetch unread message counts
   useEffect(() => {
@@ -40,17 +53,20 @@ const Messages = () => {
 
     if (connections.length > 0) {
       fetchUnreadCounts();
+      // Poll every 5 seconds for real-time updates
+      const interval = setInterval(fetchUnreadCounts, 5000);
+      
+      // Listen for message events to refresh counts immediately
+      const handleMessageEvent = () => fetchUnreadCounts();
+      window.addEventListener('messagesRead', handleMessageEvent);
+      window.addEventListener('messageReceived', handleMessageEvent);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('messagesRead', handleMessageEvent);
+        window.removeEventListener('messageReceived', handleMessageEvent);
+      };
     }
-
-    // Listen for message events to refresh counts
-    const handleMessageEvent = () => fetchUnreadCounts();
-    window.addEventListener('messagesRead', handleMessageEvent);
-    window.addEventListener('messageReceived', handleMessageEvent);
-
-    return () => {
-      window.removeEventListener('messagesRead', handleMessageEvent);
-      window.removeEventListener('messageReceived', handleMessageEvent);
-    };
   }, [connections, getToken]);
 
   return (
@@ -127,8 +143,13 @@ const Messages = () => {
         </div>
 
         {/* Info Note */}
-        <div className="mb-6 p-3 bg-indigo-50 rounded border border-indigo-200 text-sm text-indigo-700">
-          💬 <strong>Message Status Marks:</strong> Single tick = Sent | Green tick = Delivered | Double green tick = Read
+        <div className="mb-6 space-y-2">
+          <div className="p-3 bg-indigo-50 rounded border border-indigo-200 text-sm text-indigo-700">
+            💬 <strong>Message Status:</strong> Single tick = Sent | Green tick = Delivered | Double green tick = Read
+          </div>
+          <div className="p-3 bg-red-50 rounded border border-red-200 text-sm text-red-700">
+            🔴 <strong>Unread Messages:</strong> Chats with unread messages appear at the top with red badges showing the count
+          </div>
         </div>
 
         {/* Connected Users */}
@@ -136,10 +157,13 @@ const Messages = () => {
           <div className="flex flex-col gap-3">
             {filteredConnections.map((user) => {
               const isOnline = onlineUsers && onlineUsers.includes(user._id);
+              const unreadCount = unreadCounts[user._id] || 0;
               return (
               <div
                 key={user._id}
-                className="max-w-2xl flex gap-5 p-4 bg-white shadow hover:shadow-md rounded-lg transition-all hover:border-indigo-200 border border-transparent"
+                className={`max-w-2xl flex gap-5 p-4 bg-white shadow hover:shadow-md rounded-lg transition-all hover:border-indigo-200 border ${
+                  unreadCount > 0 ? 'border-indigo-300 bg-indigo-50/30' : 'border-transparent'
+                }`}
               >
                 <div className="relative">
                   <img
@@ -149,12 +173,22 @@ const Messages = () => {
                   {isOnline && (
                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
                   )}
+                  {unreadCount > 0 && (
+                    <div className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1.5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-pulse">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="font-medium text-slate-800">{user.full_name}</p>
                     {isOnline && (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Online</span>
+                    )}
+                    {unreadCount > 0 && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                        {unreadCount} new
+                      </span>
                     )}
                   </div>
                   <p className="text-slate-600 text-sm">@{user.username}</p>

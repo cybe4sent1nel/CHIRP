@@ -22,6 +22,14 @@ import ArticleDetail from "./pages/ArticleDetail";
 import ChirpChannels from "./pages/ChirpChannels";
 import CreateChannel from "./pages/CreateChannel";
 import ChannelDetail from "./pages/ChannelDetail";
+import Settings from "./pages/Settings";
+import ChirpPlay from "./pages/ChirpPlay";
+import WordLadder from "./components/games/WordLadder";
+import QuickMath from "./components/games/QuickMath";
+import MemoryFlip from "./components/games/MemoryFlip";
+import Queens from "./components/games/Queens";
+import Tents from "./components/games/Tents";
+import Zip from "./components/games/Zip";
 import NotFound from "./pages/NotFound";
 import PageLoader from "./components/PageLoader";
 import CloudUploadLoader from "./components/CloudUploadLoader";
@@ -310,8 +318,8 @@ const App = () => {
             <Route path="profile" element={<Profile />} />
             <Route path="profile/:profileId" element={<Profile />} />
             <Route path="create-post" element={<CreatePost />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="about" element={<About />} />
-            <Route path="ai-studio" element={<AIStudio />} />
             <Route path="profile-qr" element={<ProfileQR />} />
             <Route path="chirp-news" element={<ChirpNews />} />
             <Route path="news/:articleId" element={<NewsDetail />} />
@@ -320,7 +328,18 @@ const App = () => {
             <Route path="chirp-channels" element={<ChirpChannels />} />
             <Route path="create-channel" element={<CreateChannel />} />
             <Route path="channel/:channelId" element={<ChannelDetail />} />
+            <Route path="chirpplay" element={<ChirpPlay />} />
+            <Route path="chirpplay/queens" element={<Queens />} />
+            <Route path="chirpplay/tents" element={<Tents />} />
+            <Route path="chirpplay/zip" element={<Zip />} />
+            <Route path="chirpplay/wordladder" element={<WordLadder />} />
+            <Route path="chirpplay/math" element={<QuickMath />} />
+            <Route path="chirpplay/memory" element={<MemoryFlip />} />
             </Route>
+            
+          {/* AI Studio - Standalone page without sidebar */}
+          <Route path="ai-studio" element={!isUserAuthenticated ? <Login /> : <AIStudio />} />
+            
             <Route path="*" element={<NotFound />} />
         </Routes>
       </ClickSpark>
