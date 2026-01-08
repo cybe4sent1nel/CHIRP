@@ -143,17 +143,21 @@ const Chat = () => {
   const handleGifSelect = async (gifUrl) => {
     try {
       const token = await getToken();
+      // Detect if it's a sticker or gif based on URL
+      const messageType = gifUrl.includes('sticker') || gifUrl.includes('transparent') ? 'sticker' : 'gif';
+      
       const {data} = await api.post('/api/message/send', {
         to_user_id: userId,
         text: gifUrl,
-        message_type: 'gif'
+        message_type: messageType,
+        message_url: gifUrl
       }, {
         headers: {Authorization: `Bearer ${token}`}
       });
       
       if(data.success){
         dispatch(addMessage(data.message));
-        toast.success('GIF sent!');
+        toast.success(messageType === 'sticker' ? 'Sticker sent!' : 'GIF sent!');
       } else {
         throw new Error(data.message);
       }
@@ -451,9 +455,21 @@ const Chat = () => {
                         {/* GIF */}
                         {message.message_type === "gif" && (
                           <img
-                            src={message.text}
-                            className="w-full max-w-sm rounded-lg mb-1"
+                            src={message.message_url || message.text}
+                            className="w-full max-w-sm rounded-lg mb-1 bg-gray-50"
                             alt="GIF"
+                            loading="lazy"
+                          />
+                        )}
+
+                        {/* Sticker */}
+                        {message.message_type === "sticker" && (
+                          <img
+                            src={message.message_url || message.text}
+                            className="w-40 h-40 object-contain mb-1"
+                            alt="Sticker"
+                            loading="lazy"
+                            style={{ background: 'transparent' }}
                           />
                         )}
 

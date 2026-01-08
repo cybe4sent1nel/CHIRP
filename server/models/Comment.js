@@ -14,9 +14,41 @@ const commentSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true,
     trim: true
-  }
+  },
+  media_url: {
+    type: String,
+    trim: true
+  },
+  media_type: {
+    type: String,
+    enum: ['gif', 'sticker'],
+    trim: true
+  },
+  parentComment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Comment',
+    default: null
+  },
+  replies: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Comment'
+  }],
+  reactions: [{
+    user: { type: String, ref: "User" },
+    type: { type: String, enum: ["LIKE", "SUPPORT", "CELEBRATE", "CHEER", "INSIGHT", "OMG"], default: "LIKE" },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  // Hashtags and mentions for comments
+  hashtags: [{
+    type: String,
+    lowercase: true,
+    trim: true
+  }],
+  mentions: [{
+    type: String,
+    ref: "User"
+  }],
 }, {
   timestamps: true
 });

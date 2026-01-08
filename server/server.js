@@ -34,6 +34,7 @@ import callRouter from "./routes/callRoutes.js";
 import commentRouter from "./routes/commentRoutes.js";
 import gameRouter from "./routes/gameRoutes.js";
 import analyticsRouter from "./routes/analytics.js";
+import hashtagRouter from "./routes/hashtagRoutes.js";
 import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
@@ -108,6 +109,7 @@ app.use('/api/safety', safetyRouter)
 app.use('/api/notification', notificationRouter)
 app.use('/api/call', callRouter)
 app.use('/api/comment', commentRouter)
+app.use('/api/hashtag', hashtagRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 

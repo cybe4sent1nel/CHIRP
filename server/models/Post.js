@@ -11,6 +11,11 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
     likes_count: [{ type: String, ref: "User" }],
+    reactions: [{
+      user: { type: String, ref: "User" },
+      type: { type: String, enum: ["LIKE", "SUPPORT", "CELEBRATE", "CHEER", "INSIGHT", "OMG"], default: "LIKE" },
+      createdAt: { type: Date, default: Date.now }
+    }],
     reposts: [{ type: String, ref: "User" }],
     comments_count: { type: Number, default: 0 },
     shares_count: { type: Number, default: 0 },
@@ -26,6 +31,16 @@ const postSchema = new mongoose.Schema(
     profile_clicks: [{
       viewer: { type: String, ref: "User" },
       clickedAt: { type: Date, default: Date.now }
+    }],
+    // Hashtags and mentions
+    hashtags: [{
+      type: String,
+      lowercase: true,
+      trim: true
+    }],
+    mentions: [{
+      type: String,
+      ref: "User"
     }],
   },
   { timestamps: true, minimize: false }

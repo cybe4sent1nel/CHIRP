@@ -22,6 +22,8 @@ import ArticleDetail from "./pages/ArticleDetail";
 import ChirpChannels from "./pages/ChirpChannels";
 import CreateChannel from "./pages/CreateChannel";
 import ChannelDetail from "./pages/ChannelDetail";
+import Buzz from "./pages/Buzz";
+import HashtagPage from "./pages/HashtagPage";
 import Settings from "./pages/Settings";
 import ChirpPlay from "./pages/ChirpPlay";
 import WordLadder from "./components/games/WordLadder";
@@ -315,6 +317,8 @@ const App = () => {
             <Route path="messages/:userId" element={<Chat />} />
             <Route path="connections" element={<Connections />} />
             <Route path="discover" element={<Discover />} />
+            <Route path="buzz" element={<Buzz />} />
+            <Route path="hashtag/:tag" element={<HashtagPage />} />
             <Route path="profile" element={<Profile />} />
             <Route path="profile/:profileId" element={<Profile />} />
             <Route path="create-post" element={<CreatePost />} />

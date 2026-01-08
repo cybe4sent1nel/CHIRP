@@ -2,7 +2,7 @@ import sample_cover from './sample_cover.jpg'
 import sample_profile from './sample_profile.jpg'
 import bgImage from './bgImage.png'
 import group_users from './group_users.png'
-import { Home, MessageCircle, Search, UserIcon, Users, Bell, Info, Sparkles, Newspaper, BookOpen, Wind, Gamepad2 } from 'lucide-react'
+import { Home, MessageCircle, Search, UserIcon, Users, Bell, Info, Sparkles, Newspaper, BookOpen, Wind, Gamepad2, Zap } from 'lucide-react'
 import sponsored_img from './sponsored_img.png'
 
 export const assets = {
@@ -17,6 +17,7 @@ export const assets = {
 
 export const menuItemsData = [
     { to: '/', label: 'Home', Icon: Home },
+    { to: '/buzz', label: 'Buzz', Icon: Zap },
     { to: '/notifications', label: 'Notifications', Icon: Bell },
     { to: '/messages', label: 'Messages', Icon: MessageCircle },
     { to: '/connections', label: 'Network', Icon: Users },

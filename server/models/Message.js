@@ -9,7 +9,7 @@ const messageSchema = new mongoose.Schema(
     text: { type: String, trim: true },
     message_type: { 
       type: String, 
-      enum: ["text", "image", "video", "audio", "document", "voice"],
+      enum: ["text", "image", "video", "audio", "document", "voice", "gif", "sticker"],
       default: "text"
     },
     message_url: { type: String },

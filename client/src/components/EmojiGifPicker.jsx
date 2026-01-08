@@ -4,8 +4,9 @@ import EmojiPicker from 'emoji-picker-react';
 import { GiphyFetch } from '@giphy/js-fetch-api';
 import { Grid } from '@giphy/react-components';
 
-// Initialize Giphy with a free API key - you'll need to get one from https://developers.giphy.com/
-const gf = new GiphyFetch('YOUR_GIPHY_API_KEY'); // Replace with actual API key
+// Initialize Giphy with API key from environment or use a demo key
+const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY || 'sXpGFDGZs0Dv1mmNFvYaGUvYwKX0PWIh'; // Demo key for testing
+const gf = new GiphyFetch(GIPHY_API_KEY);
 
 const EmojiGifPicker = ({ onEmojiSelect, onGifSelect }) => {
   const [showPicker, setShowPicker] = useState(false);

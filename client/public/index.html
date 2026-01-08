@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- ...existing code... -->
+  </head>
+  <body>
+    <!-- ...existing code... -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then((registration) => {
+              console.log('SW registered:', registration);
+              
+              // Check online/offline status and navigate to offline page if needed
+              window.addEventListener('offline', () => {
+                if (window.location.pathname !== '/no-internet') {
+                  window.location.href = '/no-internet';
+                }
+              });
+              
+              window.addEventListener('online', () => {
+                if (window.location.pathname === '/no-internet') {
+                  window.location.href = '/';
+                }
+              });
+            })
+            .catch((error) => {
+              console.log('SW registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>

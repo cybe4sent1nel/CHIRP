@@ -5,7 +5,9 @@ import {
   getPostComments,
   addComment,
   updateComment,
-  deleteComment
+  deleteComment,
+  reactToComment,
+  replyToComment
 } from '../controllers/commentController.js';
 
 // All routes require authentication
@@ -16,5 +18,7 @@ router.get('/post/:postId', getPostComments);
 router.post('/add', addComment);
 router.put('/update', updateComment);
 router.delete('/delete/:id', deleteComment);
+router.post('/react', reactToComment);
+router.post('/reply', replyToComment);
 
 export default router;

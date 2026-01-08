@@ -1,11 +1,19 @@
 import React from 'react';
 import styled from 'styled-components';
+import Lottie from 'lottie-react';
+import timeoutAnimation from '/animations/Error 408.json';
 
 const TimeoutError = ({ onRetry, onGoBack }) => {
   return (
     <StyledWrapper>
       <div className="error-container">
-        <div className="timeout-icon">⏱️</div>
+        <div className="timeout-icon">
+          <Lottie 
+            animationData={timeoutAnimation} 
+            loop={true}
+            style={{ width: 200, height: 200 }}
+          />
+        </div>
         
         <h1 className="error-title">Request Timeout</h1>
         <p className="error-message">The page is taking too long to load. Please try again.</p>

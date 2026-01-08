@@ -2,6 +2,8 @@ import fs from "fs";
 import imageKit from "../configs/imageKit.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import Hashtag from "../models/Hashtag.js";
+import { extractHashtags, extractMentions } from "../utils/textUtils.js";
 
 // Add Post
 export const addPost = async (req, res) => {
@@ -31,12 +33,32 @@ export const addPost = async (req, res) => {
       );
     }
 
-    await Post.create({
+    // Extract hashtags and mentions
+    const hashtags = extractHashtags(content);
+    const mentions = extractMentions(content);
+
+    // Create post
+    const post = await Post.create({
       user: userId,
       content,
       image_urls,
       post_type,
+      hashtags,
+      mentions
     });
+
+    // Update hashtag collection
+    for (const tag of hashtags) {
+      await Hashtag.findOneAndUpdate(
+        { tag: tag.toLowerCase() },
+        { 
+          $inc: { count: 1 },
+          $addToSet: { posts: post._id },
+          $set: { last_used: new Date() }
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     res.json({ success: true, message: "Post created successfully" });
   } catch (error) {
@@ -57,19 +79,28 @@ export const getFeedPost = async (req, res) => {
             .populate('user')
             .populate('likes_count', '_id full_name username profile_picture')
             .sort({createdAt: -1})
+        
+        // Add user reaction info to each post
+        const postsWithReactions = posts.map(post => {
+            const userReaction = post.reactions?.find(r => r.user === userId);
+            return {
+                ...post.toObject(),
+                user_reaction: userReaction?.type || null
+            };
+        });
  
-        res.json({success: true, posts})
+        res.json({success: true, posts: postsWithReactions})
     } catch (error) {
         console.log(error)
         res.status(500).json({success: false, message: error.message})
     }
 }
 
-// Like Post
+// Like Post / Add Reaction
 export const likePost = async (req, res) => {
     try {
         const userId = req.userId || req.auth()?.userId;
-        const {postId} = req.body
+        const {postId, reactionType = 'LIKE'} = req.body
 
         if (!userId) {
             return res.status(401).json({success: false, message: 'User not authenticated'});
@@ -81,34 +112,72 @@ export const likePost = async (req, res) => {
             return res.status(404).json({success: false, message: 'Post not found'});
         }
 
-        // Check if user already liked the post
+        // Initialize reactions array if it doesn't exist
+        if (!post.reactions) {
+            post.reactions = [];
+        }
+
+        // Check if user already reacted
+        const existingReactionIndex = post.reactions.findIndex(r => r.user === userId);
         const likeIndex = post.likes_count.indexOf(userId);
         
-        if(likeIndex > -1){
-            // Unlike: remove user from likes
-            post.likes_count.splice(likeIndex, 1);
-            await post.save();
+        if (existingReactionIndex > -1) {
+            // User already reacted
+            const existingReaction = post.reactions[existingReactionIndex];
             
-            // Populate user details for remaining likes
-            const populatedPost = await Post.findById(postId).populate('likes_count', '_id full_name username profile_picture');
-            
-            res.json({
-                success: true, 
-                message: 'Post unliked',
-                likes: populatedPost.likes_count
-            });
+            if (existingReaction.type === reactionType) {
+                // Same reaction - remove it (unlike)
+                post.reactions.splice(existingReactionIndex, 1);
+                if (likeIndex > -1) {
+                    post.likes_count.splice(likeIndex, 1);
+                }
+                await post.save();
+                
+                const populatedPost = await Post.findById(postId).populate('likes_count', '_id full_name username profile_picture');
+                
+                return res.json({
+                    success: true, 
+                    message: 'Reaction removed',
+                    likes: populatedPost.likes_count,
+                    userReaction: null
+                });
+            } else {
+                // Different reaction - update it
+                post.reactions[existingReactionIndex].type = reactionType;
+                post.reactions[existingReactionIndex].createdAt = new Date();
+                await post.save();
+                
+                const populatedPost = await Post.findById(postId).populate('likes_count', '_id full_name username profile_picture');
+                
+                return res.json({
+                    success: true, 
+                    message: 'Reaction updated',
+                    likes: populatedPost.likes_count,
+                    userReaction: reactionType
+                });
+            }
         } else {
-            // Like: add user to likes
-            post.likes_count.push(userId);
+            // New reaction - add it
+            post.reactions.push({
+                user: userId,
+                type: reactionType,
+                createdAt: new Date()
+            });
+            
+            // Add to likes_count if not already there
+            if (likeIndex === -1) {
+                post.likes_count.push(userId);
+            }
+            
             await post.save();
             
-            // Populate user details for all likes
             const populatedPost = await Post.findById(postId).populate('likes_count', '_id full_name username profile_picture');
             
-            res.json({
+            return res.json({
                 success: true, 
-                message: 'Post liked',
-                likes: populatedPost.likes_count
+                message: 'Reaction added',
+                likes: populatedPost.likes_count,
+                userReaction: reactionType
             });
         }
     } catch (error) {

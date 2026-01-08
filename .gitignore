@@ -5,6 +5,16 @@
 *.md
 !README.md
 
+# ==================== START/DEV SCRIPTS ====================
+# Ignore start scripts except start.js
+start.bat
+start.ps1
+start-*.ps1
+dev.bat
+dev.ps1
+dev.sh
+!start.js
+
 # ==================== DEPENDENCIES ====================
 /node_modules
 /.pnp
