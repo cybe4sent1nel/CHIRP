@@ -1,6 +1,6 @@
 {
   "name": "chirp-social-media",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Full Stack Social Media App - Chirp",
   "main": "start.js",
   "type": "module",
