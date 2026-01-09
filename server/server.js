@@ -125,7 +125,14 @@ app.use('/api/games', gameRouter)
 
 const PORT = process.env.PORT || 4000;
 
-const server = app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+import serverless from 'serverless-http';
 
-// Setup WebSocket for games
-setupGameWebSocket(server);
+// Export a serverless handler for Vercel. We still run a local server when not deployed on Vercel
+// Note: WebSockets (game socket) require a stateful server and will not work on Vercel's serverless functions.
+export default serverless(app);
+
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+  // Setup WebSocket for games (only available in local/dev or persistent servers)
+  setupGameWebSocket(server);
+}
