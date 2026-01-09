@@ -4,4 +4,24 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_BASEURL
 })
 
+// Add response interceptor to handle errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Handle specific HTTP status codes
+      // Don't intercept 403 for admin routes - let Refine handle it
+      if (error.response.status === 403 && !window.location.pathname.startsWith('/admin')) {
+        window.location.href = '/error/403';
+      } else if (error.response.status === 500 || error.response.status === 502 || error.response.status === 503) {
+        window.location.href = '/error/500';
+      } else if (error.response.status === 408) {
+        // Timeout error - handled by TimeoutError component
+        console.error('Request timeout');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

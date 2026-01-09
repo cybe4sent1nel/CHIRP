@@ -1,4 +1,4 @@
-import { BadgeCheck, Heart, MessageCircle, Share2, Edit2, Trash2, MoreVertical, X, Save, Send, Repeat2, Sparkles, Lightbulb, FileText, Wand2, TrendingUp, ThumbsUp } from "lucide-react";
+import { BadgeCheck, Heart, MessageCircle, Share2, Edit2, Trash2, MoreVertical, X, Save, Send, Repeat2, Sparkles, Lightbulb, FileText, Wand2, TrendingUp, ThumbsUp, Flag, EyeOff, UserX } from "lucide-react";
 import moment from "moment";
 import { useState, useEffect, useRef } from "react";
 import { dummyUserData } from "../assets/assets";
@@ -16,6 +16,7 @@ import MentionHashtagText from './MentionHashtagText';
 import ReactionPicker from './ReactionPicker';
 import ReactionSummary from './ReactionSummary';
 import ReactionModal from './ReactionModal';
+import ReportModal from './ReportModal';
 
 const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
   const navigate = useNavigate()
@@ -41,6 +42,7 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
   const [commentReactions, setCommentReactions] = useState({});
   const [bounceCommentReaction, setBounceCommentReaction] = useState(null);
   const [showReactionModal, setShowReactionModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentMedia, setCommentMedia] = useState(null);
   const [commentMediaType, setCommentMediaType] = useState(null);
@@ -411,6 +413,51 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
     }
   };
 
+  const handleNotInterested = async () => {
+    try {
+      const {data} = await api.post('/api/preferences/not-interested', {
+        post_id: post._id,
+        reason: 'not_interested'
+      }, {
+        headers: {Authorization: `Bearer ${await getToken()}`}
+      });
+
+      if (data.success) {
+        toast.success('Thanks for your feedback. You\'ll see less content like this.');
+        setShowMenu(false);
+        // Optionally hide the post from feed
+        if (onPostDelete) onPostDelete(post._id);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update preferences');
+    }
+  };
+
+  const handleHideUser = async () => {
+    if (!confirm(`Hide all posts from @${post.user.username}? You can undo this later in your settings.`)) return;
+
+    try {
+      const {data} = await api.post('/api/preferences/hide-user', {
+        user_to_hide: post.user._id
+      }, {
+        headers: {Authorization: `Bearer ${await getToken()}`}
+      });
+
+      if (data.success) {
+        toast.success(data.message || 'User hidden successfully');
+        setShowMenu(false);
+        // Remove all posts from this user from the feed
+        if (onPostDelete) onPostDelete(post._id);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to hide user');
+    }
+  };
+
   const handleAddComment = async () => {
     if (!commentText.trim() && !commentMedia) return;
 
@@ -674,6 +721,54 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Post
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Menu for other users' posts */}
+        {!isOwnPost && (
+          <div className="relative">
+            <button onClick={() => setShowMenu(!showMenu)} className="p-2 hover:bg-gray-100 rounded-full">
+              <MoreVertical className="w-5 h-5 text-gray-600" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                <button
+                  onClick={() => {
+                    handleNotInterested();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-gray-50"
+                >
+                  <EyeOff className="w-4 h-4 text-gray-600" />
+                  <div>
+                    <div className="text-sm font-medium">Not Interested</div>
+                    <div className="text-xs text-gray-500">See less like this</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    handleHideUser();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-gray-50"
+                >
+                  <UserX className="w-4 h-4 text-gray-600" />
+                  <div>
+                    <div className="text-sm font-medium">Hide User</div>
+                    <div className="text-xs text-gray-500">Hide @{post.user.username}</div>
+                  </div>
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  onClick={() => {
+                    setShowReportModal(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-red-50 text-red-600"
+                >
+                  <Flag className="w-4 h-4" />
+                  <div className="text-sm font-medium">Report Post</div>
                 </button>
               </div>
             )}
@@ -1505,6 +1600,16 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
           likes={likes}
           currentUserId={currentUser._id}
           onClose={() => setShowReactionModal(false)}
+        />
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          itemType="post"
+          itemId={post._id}
         />
       )}
     </div>

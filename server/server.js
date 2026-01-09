@@ -35,6 +35,11 @@ import commentRouter from "./routes/commentRoutes.js";
 import gameRouter from "./routes/gameRoutes.js";
 import analyticsRouter from "./routes/analytics.js";
 import hashtagRouter from "./routes/hashtagRoutes.js";
+import reportRouter from "./routes/reportRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
+import onboardingRouter from "./routes/onboardingRoutes.js";
+import preferenceRouter from "./routes/preferenceRoutes.js";
+import conversationRouter from "./routes/conversationRoutes.js";
 import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
@@ -110,6 +115,11 @@ app.use('/api/notification', notificationRouter)
 app.use('/api/call', callRouter)
 app.use('/api/comment', commentRouter)
 app.use('/api/hashtag', hashtagRouter)
+app.use('/api/report', reportRouter)
+app.use('/api/admin', adminRouter)
+app.use('/api/user', onboardingRouter)
+app.use('/api/preferences', preferenceRouter)
+app.use('/api/conversations', conversationRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 

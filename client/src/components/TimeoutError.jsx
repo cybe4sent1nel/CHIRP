@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import Lottie from 'lottie-react';
-import timeoutAnimation from '/animations/Error 408.json';
 
 const TimeoutError = ({ onRetry, onGoBack }) => {
+  const [timeoutAnimation, setTimeoutAnimation] = useState(null);
+
+  useEffect(() => {
+    fetch('/animations/Error 408.json')
+      .then(res => res.json())
+      .then(data => setTimeoutAnimation(data))
+      .catch(err => console.error('Failed to load animation:', err));
+  }, []);
+
   return (
     <StyledWrapper>
       <div className="error-container">
         <div className="timeout-icon">
-          <Lottie 
-            animationData={timeoutAnimation} 
-            loop={true}
-            style={{ width: 200, height: 200 }}
-          />
+          {timeoutAnimation && (
+            <Lottie 
+              animationData={timeoutAnimation} 
+              loop={true}
+              style={{ width: 200, height: 200 }}
+            />
+          )}
         </div>
         
         <h1 className="error-title">Request Timeout</h1>

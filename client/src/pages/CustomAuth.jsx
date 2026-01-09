@@ -329,13 +329,116 @@ const CustomAuth = () => {
             <div className="flex-1 h-px bg-gray-300"></div>
           </div>
 
-          {/* Google Login */}
+          {/* Google Button */}
           <button
             onClick={handleGoogleLogin}
-            className="w-full py-3 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+            className="auth-btn google-btn"
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#ffffff',
+              border: '1px solid #dadce0',
+              borderRadius: '20px',
+              padding: '0 24px',
+              height: '48px',
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 1px 3px rgba(60,64,67, 0.3), 0 4px 8px 3px rgba(60,64,67, 0.15)',
+              outline: 'none',
+              textDecoration: 'none',
+              width: '100%',
+              marginBottom: '12px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f7f9ff';
+              e.currentTarget.style.borderColor = '#d2e3fc';
+              e.currentTarget.style.boxShadow = '0 2px 3px rgba(60,64,67, 0.3), 0 6px 10px 4px rgba(60,64,67, 0.15)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#dadce0';
+              e.currentTarget.style.boxShadow = '0 1px 3px rgba(60,64,67, 0.3), 0 4px 8px 3px rgba(60,64,67, 0.15)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.backgroundColor = '#e8f0fe';
+              e.currentTarget.style.transform = 'scale(0.98) translateY(0)';
+              e.currentTarget.style.boxShadow = '0 1px 2px rgba(60,64,67, 0.3), 0 1px 3px 1px rgba(60,64,67, 0.15)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.backgroundColor = '#f7f9ff';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 2px 3px rgba(60,64,67, 0.3), 0 6px 10px 4px rgba(60,64,67, 0.15)';
+            }}
           >
-            <Chrome size={20} />
-            Continue with Google
+            <div style={{ width: '20px', height: '20px', marginRight: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ width: '100%', height: '100%' }}>
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+            </div>
+            <span style={{ color: '#3c4043', fontSize: '15px', fontWeight: '500', letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>
+              Continue with Google
+            </span>
+          </button>
+
+          {/* Clerk Button */}
+          <button
+            onClick={() => setShowClerkSignIn(true)}
+            className="auth-btn clerk-btn"
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#ffffff',
+              border: '1px solid #dadce0',
+              borderRadius: '20px',
+              padding: '0 24px',
+              height: '48px',
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 1px 3px rgba(60,64,67, 0.3), 0 4px 8px 3px rgba(60,64,67, 0.15)',
+              outline: 'none',
+              textDecoration: 'none',
+              width: '100%'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f7f9ff';
+              e.currentTarget.style.borderColor = '#6c47ff';
+              e.currentTarget.style.boxShadow = '0 2px 3px rgba(60,64,67, 0.3), 0 6px 10px 4px rgba(60,64,67, 0.15)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#dadce0';
+              e.currentTarget.style.boxShadow = '0 1px 3px rgba(60,64,67, 0.3), 0 4px 8px 3px rgba(60,64,67, 0.15)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.backgroundColor = '#e8f0fe';
+              e.currentTarget.style.transform = 'scale(0.98) translateY(0)';
+              e.currentTarget.style.boxShadow = '0 1px 2px rgba(60,64,67, 0.3), 0 1px 3px 1px rgba(60,64,67, 0.15)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.backgroundColor = '#f7f9ff';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 2px 3px rgba(60,64,67, 0.3), 0 6px 10px 4px rgba(60,64,67, 0.15)';
+            }}
+          >
+            <div style={{ width: '20px', height: '20px', marginRight: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+                <path d="m21.47 20.829 -2.881 -2.881a0.572 0.572 0 0 0 -0.7 -0.084 6.854 6.854 0 0 1 -7.081 0 0.576 0.576 0 0 0 -0.7 0.084l-2.881 2.881a0.576 0.576 0 0 0 -0.103 0.69 0.57 0.57 0 0 0 0.166 0.186 12 12 0 0 0 14.113 0 0.58 0.58 0 0 0 0.239 -0.423 0.576 0.576 0 0 0 -0.172 -0.453Zm0.002 -17.668 -2.88 2.88a0.569 0.569 0 0 1 -0.701 0.084A6.857 6.857 0 0 0 8.724 8.08a6.862 6.862 0 0 0 -1.222 3.692 6.86 6.86 0 0 0 0.978 3.764 0.573 0.573 0 0 1 -0.083 0.699l-2.881 2.88a0.567 0.567 0 0 1 -0.864 -0.063A11.993 11.993 0 0 1 6.771 2.7a11.99 11.99 0 0 1 14.637 -0.405 0.566 0.566 0 0 1 0.232 0.418 0.57 0.57 0 0 1 -0.168 0.448Zm-7.118 12.261a3.427 3.427 0 1 0 0 -6.854 3.427 3.427 0 0 0 0 6.854Z" fill="#6c47ff" strokeWidth="1"/>
+              </svg>
+            </div>
+            <span style={{ color: '#3c4043', fontSize: '15px', fontWeight: '500', letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>
+              Continue with Clerk
+            </span>
           </button>
 
           {/* Toggle Login/Signup */}
@@ -348,16 +451,6 @@ const CustomAuth = () => {
               <span className="font-bold underline text-purple-600">
                 {isLogin ? 'Sign Up' : 'Login'}
               </span>
-            </button>
-          </div>
-
-          {/* Use Clerk Option */}
-          <div className="text-center mt-4">
-            <button
-              onClick={() => setShowClerkSignIn(true)}
-              className="text-gray-500 hover:text-gray-700 text-sm"
-            >
-              Or continue with Clerk Authentication →
             </button>
           </div>
         </div>

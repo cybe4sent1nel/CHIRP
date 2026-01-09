@@ -14,9 +14,13 @@ const reportSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post',
   },
+  reported_message_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+  },
   type: {
     type: String,
-    enum: ['user', 'post'],
+    enum: ['user', 'post', 'message'],
     required: true,
   },
   reason: {
@@ -29,6 +33,8 @@ const reportSchema = new mongoose.Schema({
       'spam',
       'adult_content',
       'violence',
+      'scam',
+      'impersonation',
       'other',
     ],
   },
@@ -39,6 +45,20 @@ const reportSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'reviewed', 'resolved'],
     default: 'pending',
+  },
+  action_taken: {
+    type: String,
+    enum: ['no_action', 'content_removed', 'user_warned', 'user_suspended', 'user_banned'],
+  },
+  reviewed_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+  },
+  reviewed_at: {
+    type: Date,
+  },
+  admin_notes: {
+    type: String,
   },
   created_at: {
     type: Date,

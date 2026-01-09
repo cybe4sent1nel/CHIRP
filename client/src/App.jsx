@@ -36,6 +36,10 @@ import NotFound from "./pages/NotFound";
 import PageLoader from "./components/PageLoader";
 import CloudUploadLoader from "./components/CloudUploadLoader";
 import NoInternetError from "./components/NoInternetError";
+import Forbidden from "./pages/errors/Forbidden";
+import ServerError from "./pages/errors/ServerError";
+import ErrorBoundary from "./components/ErrorBoundary";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import Layout from "./pages/Layout";
 import { Toaster } from "react-hot-toast";
@@ -298,10 +302,15 @@ const App = () => {
       <Toaster />
       {isLoading && <PageLoader />}
       {isUploading && <CloudUploadLoader isLoading={isUploading} />}
-      <ClickSpark>
-        <Routes>
-          {/* Landing Page - Clerk Login as default */}
-          <Route path="/welcome" element={<Login />} />
+      <ErrorBoundary>
+        <ClickSpark>
+          <Routes>
+            {/* Error Pages - Accessible globally */}
+            <Route path="/error/403" element={<Forbidden />} />
+            <Route path="/error/500" element={<ServerError />} />
+            
+            {/* Landing Page - Clerk Login as default */}
+            <Route path="/welcome" element={<Login />} />
           
           {/* Custom Auth Routes - Accessible without authentication */}
           <Route path="/auth" element={<CustomAuth />} />
@@ -343,10 +352,14 @@ const App = () => {
             
           {/* AI Studio - Standalone page without sidebar */}
           <Route path="ai-studio" element={!isUserAuthenticated ? <Login /> : <AIStudio />} />
+          
+          {/* Admin Dashboard - Standalone with its own layout */}
+          <Route path="/admin/*" element={<AdminDashboard />} />
             
             <Route path="*" element={<NotFound />} />
-        </Routes>
-      </ClickSpark>
+          </Routes>
+        </ClickSpark>
+      </ErrorBoundary>
     </>
   );
 };
