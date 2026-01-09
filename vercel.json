@@ -1,21 +1,43 @@
 {
-  "buildCommand": "npm run build:all",
-  "outputDirectory": "client/dist",
-  "framework": null,
-  "functions": {
-    "server/server.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server/server.js"
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "client/dist"
+      }
     },
     {
-      "source": "/inngest",
-      "destination": "/server/server.js"
+      "src": "server/server.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "server/configs/**",
+          "server/controllers/**",
+          "server/models/**",
+          "server/routes/**",
+          "server/middlewares/**",
+          "server/utils/**",
+          "server/inngest/**",
+          "server/lib/**",
+          "server/data/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/server.js"
+    },
+    {
+      "src": "/inngest",
+      "dest": "server/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "client/dist/$1"
     }
   ],
   "headers": [
