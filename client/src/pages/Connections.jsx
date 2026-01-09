@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
 import { fetchConnections } from "../features/connections/connectionSlice";
 import api from "../api/axios";
 import toast from 'react-hot-toast'
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast'
 const Connections = () => {
   const navigate = useNavigate();
   const {getToken} = useAuth();
+  const { token: customToken } = useCustomAuth();
   const dispatch = useDispatch()
   const [unreadCounts, setUnreadCounts] = useState({});
 
@@ -32,12 +34,14 @@ const Connections = () => {
 
   const handleUnfollow = async (userId) => {
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const {data} = await api.get('api/user/unfollow', {id: userId}, {
-        headers: {Authorization: `Bearer ${await getToken()}`}
+        headers: {Authorization: `Bearer ${authToken}`}
       })
       if (data.success){
         toast.success(data.message)
-        dispatch(fetchConnections(await getToken()))
+        dispatch(fetchConnections(authToken))
       } else {
         toast(data.message)
       }
@@ -48,12 +52,14 @@ const Connections = () => {
 
     const acceptConnection = async (userId) => {
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const {data} = await api.post('api/user/accept', {id: userId}, {
-        headers: {Authorization: `Bearer ${await getToken()}`}
+        headers: {Authorization: `Bearer ${authToken}`}
       })
       if (data.success){
         toast.success(data.message)
-        dispatch(fetchConnections(await getToken()))
+        dispatch(fetchConnections(authToken))
       } else {
         toast(data.message)
       }
@@ -64,13 +70,14 @@ const Connections = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = await getToken();
-      dispatch(fetchConnections(token));
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
+      dispatch(fetchConnections(authToken));
       
       // Fetch unread message counts
       try {
         const { data } = await api.get('/api/message/unread-counts', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${authToken}` }
         });
         if (data.success) {
           setUnreadCounts(data.unreadCounts);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Lottie from 'lottie-react';
-import { Mail, Lock, User, Chrome } from 'lucide-react';
+import { Mail, Lock, User, Chrome, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { useCustomAuth } from '../context/AuthContext';
@@ -15,6 +15,8 @@ const CustomAuth = () => {
   const [rightAnimation, setRightAnimation] = useState(null);
   const [catAnimation, setCatAnimation] = useState(null);
   const [showClerkSignIn, setShowClerkSignIn] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
   const catLottieRef = useRef(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -29,14 +31,43 @@ const CustomAuth = () => {
     username: ''
   });
 
+  // Password strength states
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0, // 0-4 (0: empty, 1: weak, 2: fair, 3: good, 4: strong)
+    label: '',
+    requirements: {
+      minLength: false,
+      hasUpperCase: false,
+      hasLowerCase: false,
+      hasNumber: false,
+      hasSpecialChar: false
+    }
+  });
+
   const API_URL = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
 
-  // Redirect if already authenticated
+  // Clear invalid auth data on mount only
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
+    const token = localStorage.getItem('customAuthToken');
+    const user = localStorage.getItem('customUser');
+    
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        
+        // If email is not verified, clear the auth data
+        if (!userData.emailVerified) {
+          console.log('User email not verified, clearing auth data');
+          localStorage.removeItem('customAuthToken');
+          localStorage.removeItem('customUser');
+        }
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        localStorage.removeItem('customAuthToken');
+        localStorage.removeItem('customUser');
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, []); // Only run once on mount
 
   // Check URL params for mode
   useEffect(() => {
@@ -78,11 +109,52 @@ const CustomAuth = () => {
     }
   }, [searchParams, navigate]);
 
+  const checkPasswordStrength = (password) => {
+    const requirements = {
+      minLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%]/.test(password)
+    };
+
+    // Calculate score based on requirements met
+    const metRequirements = Object.values(requirements).filter(Boolean).length;
+    let score = 0;
+    let label = '';
+
+    if (password.length === 0) {
+      score = 0;
+      label = '';
+    } else if (metRequirements <= 2) {
+      score = 1;
+      label = 'Weak';
+    } else if (metRequirements === 3) {
+      score = 2;
+      label = 'Fair';
+    } else if (metRequirements === 4) {
+      score = 3;
+      label = 'Good';
+    } else if (metRequirements === 5) {
+      score = 4;
+      label = 'Strong';
+    }
+
+    return { score, label, requirements };
+  };
+
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+
+    // Update password strength for signup password field
+    if (name === 'password' && !isLogin) {
+      setPasswordStrength(checkPasswordStrength(value));
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -114,9 +186,29 @@ const CustomAuth = () => {
         
         if (result.success) {
           toast.success('Login successful!');
-          navigate('/');
+          // Force a full page reload to refresh auth state
+          setLoading(false);
+          window.location.replace('/');
+          return; // Exit to prevent further execution
         } else {
-          toast.error(result.message || 'Login failed');
+          // Show error message with appropriate icon
+          const isPasswordError = result.field === 'password';
+          toast.error(result.message || 'Login failed', {
+            duration: 5000,
+            icon: isPasswordError ? '🔒' : '⚠️'
+          });
+          
+          // If user doesn't exist, suggest signup
+          if (result.shouldSignup) {
+            setTimeout(() => {
+              const shouldSwitch = window.confirm(
+                'Would you like to create a new account instead?'
+              );
+              if (shouldSwitch) {
+                setIsLogin(false);
+              }
+            }, 1500);
+          }
         }
       } else {
         // Signup using AuthContext
@@ -128,10 +220,54 @@ const CustomAuth = () => {
         );
 
         if (result.success) {
-          toast.success('Account created! Please check your email to verify.');
-          navigate('/');
+          // Clear any old auth data
+          localStorage.removeItem('customAuthToken');
+          localStorage.removeItem('customUser');
+          
+          setVerificationEmail(formData.email);
+          setShowVerificationMessage(true);
+          toast.success('Account created! Please check your email to verify.', {
+            duration: 6000,
+            icon: '📧'
+          });
+          // Clear form
+          setFormData({
+            identifier: '',
+            email: '',
+            password: '',
+            full_name: '',
+            username: ''
+          });
         } else {
-          toast.error(result.message || 'Signup failed');
+          // Show specific error based on field
+          if (result.field === 'email') {
+            toast.error(result.message || 'Email already registered', {
+              duration: 5000,
+              icon: '⚠️'
+            });
+            setTimeout(() => {
+              const shouldLogin = window.confirm(
+                'This email is already registered. Would you like to login instead?'
+              );
+              if (shouldLogin) {
+                setIsLogin(true);
+                setFormData({
+                  identifier: formData.email,
+                  email: '',
+                  password: formData.password,
+                  full_name: '',
+                  username: ''
+                });
+              }
+            }, 1500);
+          } else if (result.field === 'username') {
+            toast.error(result.message || 'Username already taken', {
+              duration: 5000,
+              icon: '⚠️'
+            });
+          } else {
+            toast.error(result.message || 'Signup failed');
+          }
         }
       }
     } catch (error) {
@@ -201,6 +337,43 @@ const CustomAuth = () => {
         </div>
       )}
 
+      {/* Verification Success Message */}
+      {showVerificationMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-lg px-4">
+          <div className="bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-xl shadow-2xl p-6 relative animate-slideDown">
+            <button
+              onClick={() => setShowVerificationMessage(false)}
+              className="absolute top-3 right-3 text-white/80 hover:text-white"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <Mail size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold mb-2">Check Your Email! 📧</h3>
+                <p className="text-white/90 text-sm mb-2">
+                  We've sent a verification link to <strong>{verificationEmail}</strong>
+                </p>
+                <p className="text-white/80 text-xs mb-3">
+                  Please click the link in the email to verify your account and unlock all features.
+                </p>
+                <button
+                  onClick={() => {
+                    setShowVerificationMessage(false);
+                    setIsLogin(true);
+                  }}
+                  className="text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Go to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Form Container */}
       <div className="relative z-10 w-full max-w-md">
         <div className="bg-white border border-gray-200 rounded-3xl shadow-2xl p-8">
@@ -263,6 +436,7 @@ const CustomAuth = () => {
                 placeholder={isLogin ? 'Email or Username' : 'Email'}
                 value={isLogin ? formData.identifier : formData.email}
                 onChange={handleInputChange}
+                autoComplete={isLogin ? 'username' : 'email'}
                 required
                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
@@ -277,6 +451,7 @@ const CustomAuth = () => {
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleInputChange}
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
                 className="w-full pl-12 pr-16 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
@@ -298,6 +473,116 @@ const CustomAuth = () => {
                 )}
               </button>
             </div>
+
+            {/* Password Strength Indicator (Signup only) */}
+            {!isLogin && formData.password && (
+              <div className="space-y-3 mt-2">
+                {/* Strength Bar */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Password Strength:</span>
+                    <span className={`font-semibold ${
+                      passwordStrength.score === 1 ? 'text-red-500' :
+                      passwordStrength.score === 2 ? 'text-orange-500' :
+                      passwordStrength.score === 3 ? 'text-blue-500' :
+                      passwordStrength.score === 4 ? 'text-green-500' : 'text-gray-400'
+                    }`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-300 ${
+                        passwordStrength.score === 1 ? 'bg-red-500 w-1/4' :
+                        passwordStrength.score === 2 ? 'bg-orange-500 w-2/4' :
+                        passwordStrength.score === 3 ? 'bg-blue-500 w-3/4' :
+                        passwordStrength.score === 4 ? 'bg-green-500 w-full' : 'w-0'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Requirements List */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                  <div className="text-xs font-medium text-gray-700 mb-2">Password must contain:</div>
+                  
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${
+                    passwordStrength.requirements.minLength ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                      passwordStrength.requirements.minLength 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {passwordStrength.requirements.minLength && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span>At least 8 characters</span>
+                  </div>
+
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${
+                    passwordStrength.requirements.hasUpperCase ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                      passwordStrength.requirements.hasUpperCase 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {passwordStrength.requirements.hasUpperCase && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span>One uppercase letter (A-Z)</span>
+                  </div>
+
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${
+                    passwordStrength.requirements.hasLowerCase ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                      passwordStrength.requirements.hasLowerCase 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {passwordStrength.requirements.hasLowerCase && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span>One lowercase letter (a-z)</span>
+                  </div>
+
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${
+                    passwordStrength.requirements.hasNumber ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                      passwordStrength.requirements.hasNumber 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {passwordStrength.requirements.hasNumber && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span>One number (0-9)</span>
+                  </div>
+
+                  <div className={`flex items-center gap-2 text-xs transition-colors ${
+                    passwordStrength.requirements.hasSpecialChar ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                      passwordStrength.requirements.hasSpecialChar 
+                        ? 'bg-green-500 border-green-500' 
+                        : 'border-gray-300'
+                    }`}>
+                      {passwordStrength.requirements.hasSpecialChar && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span>One special character (!@#$%)</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Forgot Password (Login only) */}
             {isLogin && (

@@ -110,6 +110,30 @@ const baseTemplate = (content) => `
       background: linear-gradient(to right, transparent, #ddd, transparent);
       margin: 30px 0;
     }
+    .unsubscribe {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #999;
+    }
+    .unsubscribe a {
+      color: #667eea;
+      text-decoration: underline;
+    }
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+    }
+    .feature-list {
+      text-align: left;
+      margin: 20px 0;
+    }
+    .feature-list li {
+      padding: 8px 0;
+      color: #555;
+    }
   </style>
 </head>
 <body>
@@ -131,6 +155,10 @@ const baseTemplate = (content) => `
       <p style="font-size: 12px; color: #999;">
         You're receiving this email because you have an account with ${APP_NAME}.
       </p>
+      <div class="unsubscribe">
+        <p>Don't want to receive these emails? <a href="${FRONTEND_URL}/unsubscribe">Unsubscribe</a></p>
+        <p style="margin-top: 8px;">${APP_NAME} • Making the world more connected, one chirp at a time 🐦</p>
+      </div>
     </div>
   </div>
 </body>
@@ -141,26 +169,52 @@ const baseTemplate = (content) => `
 export const welcomeEmail = (userName) => {
   const content = `
     <div class="content">
-      <h2>Welcome to ${APP_NAME}! 🎉</h2>
+      <h2>Welcome to ${APP_NAME}, ${userName}! 🎉</h2>
       <p>Hi <strong>${userName}</strong>,</p>
-      <p>We're thrilled to have you join our community! ${APP_NAME} is your space to connect, share, and stay updated with friends and the world.</p>
+      <p>We're absolutely thrilled to have you join our vibrant community! You've just become part of something special – a platform where connections flourish, creativity thrives, and every voice matters.</p>
+      
+      <div class="highlight-box">
+        <h3 style="color: #667eea; margin-top: 0;">✨ What Makes Chirp Special?</h3>
+        <div class="feature-list">
+          <p><strong>🎨 AI-Powered Creativity</strong><br>
+          Transform your ideas into stunning visuals with our AI Studio. Create unique art, edit photos, and bring your imagination to life!</p>
+          
+          <p><strong>🌍 Global Connections</strong><br>
+          Connect with like-minded individuals from around the world. Share your thoughts, stories, and moments that matter.</p>
+          
+          <p><strong>💬 Real-Time Conversations</strong><br>
+          Experience seamless messaging, video calls, and engaging discussions with friends and communities.</p>
+          
+          <p><strong>🎯 Personalized Feed</strong><br>
+          Your feed adapts to your interests, ensuring you never miss content that resonates with you.</p>
+        </div>
+      </div>
       
       <div class="info-box">
-        <strong>🚀 Get Started:</strong>
+        <strong>🚀 Quick Start Guide:</strong>
         <ul style="margin: 10px 0; padding-left: 20px;">
-          <li>Complete your profile</li>
-          <li>Find and connect with friends</li>
-          <li>Share your first post or story</li>
-          <li>Explore AI Studio for creative content</li>
+          <li><strong>Step 1:</strong> Complete your profile with a photo and bio</li>
+          <li><strong>Step 2:</strong> Find and connect with friends</li>
+          <li><strong>Step 3:</strong> Share your first post or story</li>
+          <li><strong>Step 4:</strong> Explore AI Studio to create amazing content</li>
+          <li><strong>Step 5:</strong> Join communities that match your interests</li>
         </ul>
       </div>
       
-      <div style="text-align: center;">
-        <a href="${FRONTEND_URL}" class="button">Explore ${APP_NAME}</a>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${FRONTEND_URL}" class="button">Start Your Journey</a>
       </div>
       
-      <p>If you have any questions, our support team is always here to help!</p>
-      <p>Happy chirping! 🐦</p>
+      <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #856404;"><strong>💡 Pro Tip:</strong> Enable notifications to stay updated with messages, comments, and new connections. You can customize these in your settings anytime!</p>
+      </div>
+      
+      <p>Our support team is always here to help you make the most of Chirp. Have questions? Just reply to this email or visit our <a href="${FRONTEND_URL}/support" style="color: #667eea;">Help Center</a>.</p>
+      
+      <p style="font-size: 18px; margin-top: 30px;">Welcome aboard, <strong>${userName}</strong>! Let's make amazing things happen together! 🚀</p>
+      
+      <p style="margin-top: 20px; color: #666;">Warm regards,<br>
+      <strong>The Chirp Team</strong> 💜</p>
     </div>
   `;
   return baseTemplate(content);
@@ -172,23 +226,46 @@ export const verificationEmail = (userName, verificationLink) => {
     <div class="content">
       <h2>Verify Your Email Address 📧</h2>
       <p>Hi <strong>${userName}</strong>,</p>
-      <p>Thanks for signing up! We need to verify your email address to activate your account.</p>
+      <p>Welcome to Chirp! We're excited to have you here. To ensure the security of your account and unlock all features, please verify your email address by clicking the button below.</p>
+      
+      <div class="highlight-box">
+        <h3 style="color: #667eea; margin-top: 0;">🔒 Why Verify?</h3>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li>Protect your account from unauthorized access</li>
+          <li>Unlock all Chirp features and capabilities</li>
+          <li>Receive important account notifications</li>
+          <li>Connect with the global Chirp community</li>
+        </ul>
+      </div>
       
       <div class="info-box">
-        <strong>⏱️ Important:</strong> This link will expire in 24 hours.
+        <strong>⏱️ Important Security Notice:</strong> This verification link will expire in 24 hours for your protection. If the link expires, you can request a new one from the login page.
       </div>
       
-      <div style="text-align: center;">
-        <a href="${verificationLink}" class="button">Verify Email</a>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationLink}" class="button">Verify My Email</a>
       </div>
       
-      <p>Or copy and paste this link into your browser:</p>
-      <p style="word-break: break-all; color: #667eea; font-size: 14px;">${verificationLink}</p>
+      <p style="font-size: 14px; color: #666; text-align: center; margin: 20px 0;">Or copy and paste this link into your browser:</p>
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="word-break: break-all; color: #667eea; font-size: 13px; margin: 0; font-family: monospace;">${verificationLink}</p>
+      </div>
       
       <div class="divider"></div>
-      <p style="font-size: 14px; color: #666;">
-        If you didn't create this account, please ignore this email.
+      
+      <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #721c24;">
+          <strong>⚠️ Didn't create a Chirp account?</strong><br>
+          If you didn't request this verification email, you can safely ignore and delete it. No account will be created, and no further action is required from you. Your email address will be removed from our system within 24 hours.
+        </p>
+      </div>
+      
+      <p style="font-size: 14px; color: #666; margin-top: 20px;">
+        Having trouble? Contact our support team at <a href="mailto:support@chirp.com" style="color: #667eea;">support@chirp.com</a> or visit our <a href="${FRONTEND_URL}/help" style="color: #667eea;">Help Center</a>.
       </p>
+      
+      <p style="margin-top: 20px; color: #666;">Best regards,<br>
+      <strong>The Chirp Team</strong></p>
     </div>
   `;
   return baseTemplate(content);
@@ -200,24 +277,51 @@ export const passwordResetEmail = (userName, resetLink) => {
     <div class="content">
       <h2>Reset Your Password 🔐</h2>
       <p>Hi <strong>${userName}</strong>,</p>
-      <p>We received a request to reset your password. Click the button below to create a new password:</p>
+      <p>We received a request to reset your password for your Chirp account. Don't worry – we're here to help you regain access securely!</p>
+      
+      <div class="highlight-box">
+        <h3 style="color: #667eea; margin-top: 0;">🔒 Security First</h3>
+        <p style="margin: 10px 0;">Click the button below to create a new password. This link is unique to your account and can only be used once.</p>
+      </div>
       
       <div class="info-box">
-        <strong>⏱️ Security Notice:</strong> This link will expire in 1 hour.
+        <strong>⏱️ Important Security Notice:</strong> This password reset link will expire in <strong>1 hour</strong> for your protection. If you don't use it within this time, you'll need to request a new one.
       </div>
       
-      <div style="text-align: center;">
-        <a href="${resetLink}" class="button">Reset Password</a>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" class="button">Reset My Password</a>
       </div>
       
-      <p>Or copy and paste this link into your browser:</p>
-      <p style="word-break: break-all; color: #667eea; font-size: 14px;">${resetLink}</p>
+      <p style="font-size: 14px; color: #666; text-align: center; margin: 20px 0;">Or copy and paste this link into your browser:</p>
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="word-break: break-all; color: #667eea; font-size: 13px; margin: 0; font-family: monospace;">${resetLink}</p>
+      </div>
       
       <div class="divider"></div>
-      <p style="font-size: 14px; color: #666;">
-        <strong>Didn't request a password reset?</strong><br>
-        You can safely ignore this email. Your password will remain unchanged.
+      
+      <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #721c24;">
+          <strong>⚠️ Didn't request a password reset?</strong><br>
+          If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged, and no further action is required. Someone may have entered your email address by mistake.
+        </p>
+      </div>
+      
+      <div style="background: #d1ecf1; border-left: 4px solid #0c5460; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #0c5460;">
+          <strong>💡 Security Tips:</strong><br>
+          • Use a strong, unique password<br>
+          • Don't share your password with anyone<br>
+          • Enable two-factor authentication for extra security<br>
+          • Never click on suspicious password reset emails
+        </p>
+      </div>
+      
+      <p style="font-size: 14px; color: #666; margin-top: 20px;">
+        If you're having trouble resetting your password, contact our support team at <a href="mailto:support@chirp.com" style="color: #667eea;">support@chirp.com</a>
       </p>
+      
+      <p style="margin-top: 20px; color: #666;">Stay secure,<br>
+      <strong>The Chirp Security Team</strong> 🔒</p>
     </div>
   `;
   return baseTemplate(content);
@@ -229,17 +333,46 @@ export const passwordChangedEmail = (userName) => {
     <div class="content">
       <h2>Password Changed Successfully ✅</h2>
       <p>Hi <strong>${userName}</strong>,</p>
-      <p>Your password has been successfully changed.</p>
+      <p>This is a confirmation that your Chirp account password has been successfully changed. Your account is now secured with your new password.</p>
       
-      <div class="info-box">
-        <strong>🔒 Security Tip:</strong> Use a unique, strong password and enable two-factor authentication for extra security.
+      <div class="highlight-box">
+        <h3 style="color: #667eea; margin-top: 0;">✔️ What This Means</h3>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li>Your old password is no longer valid</li>
+          <li>You'll need to use your new password for future logins</li>
+          <li>All active sessions remain logged in</li>
+          <li>Your account security has been updated</li>
+        </ul>
       </div>
       
-      <p>If you didn't make this change, please contact our support team immediately.</p>
-      
-      <div style="text-align: center;">
-        <a href="${FRONTEND_URL}/support" class="button">Contact Support</a>
+      <div style="background: #d1ecf1; border-left: 4px solid #0c5460; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #0c5460;">
+          <strong>🔒 Security Tips to Keep Your Account Safe:</strong><br>
+          • Never share your password with anyone<br>
+          • Use a unique password for each online account<br>
+          • Enable two-factor authentication for extra protection<br>
+          • Update your password regularly (every 3-6 months)<br>
+          • Be cautious of phishing emails asking for your password
+        </p>
       </div>
+      
+      <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #721c24;">
+          <strong>⚠️ Didn't change your password?</strong><br>
+          If you didn't make this change, your account may be compromised. Please contact our support team immediately and reset your password again.
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${FRONTEND_URL}/settings/security" class="button">View Security Settings</a>
+      </div>
+      
+      <p style="font-size: 14px; color: #666; margin-top: 20px;">
+        Need help or have security concerns? Contact us immediately at <a href="mailto:security@chirp.com" style="color: #667eea;">security@chirp.com</a>
+      </p>
+      
+      <p style="margin-top: 20px; color: #666;">Stay safe,<br>
+      <strong>The Chirp Security Team</strong> 🔒</p>
     </div>
   `;
   return baseTemplate(content);

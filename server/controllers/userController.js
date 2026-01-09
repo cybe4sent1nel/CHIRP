@@ -5,6 +5,7 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 
 // Get User data using userId
 export const getUserData = async (req, res) => {
@@ -418,3 +419,79 @@ export const searchUsers = async (req, res) => {
   }
 };
 
+// Update Password
+export const updatePassword = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { oldPassword, newPassword } = req.body;
+
+    // Validate inputs
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Please provide both old and new passwords" 
+      });
+    }
+
+    // Validate new password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters with uppercase, lowercase, number, and special character (!@#$%)"
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Check if user has a password (might be OAuth user)
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "Your account uses social login. Please use 'Forgot Password' to set a password."
+      });
+    }
+
+    // Verify old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Current password is incorrect" 
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    // Send confirmation email
+    try {
+      const { passwordChangedEmail } = await import('../configs/emailTemplates.js');
+      const { transporter } = await import('../configs/nodeMailer.js');
+      
+      await transporter.sendMail({
+        to: user.email,
+        subject: 'Password Changed Successfully',
+        html: passwordChangedEmail(user.full_name || user.username)
+      });
+    } catch (emailError) {
+      console.error('Failed to send password change confirmation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Password updated successfully" 
+    });
+
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

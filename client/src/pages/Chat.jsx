@@ -3,6 +3,7 @@ import { ImageIcon, SendHorizonal, Phone, Video, FileText, X, ArrowLeft, MoreVer
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
 import { addMessage, fetchMessages, resetMessages, updateMessageStatus } from "../features/messages/messagesSlice";
 import api from "../api/axios";
 import toast from 'react-hot-toast'
@@ -25,6 +26,7 @@ const Chat = () => {
   const {messages} = useSelector((state) => state.messages);
   const { userId } = useParams();
   const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
   const dispatch = useDispatch();
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);

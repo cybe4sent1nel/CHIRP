@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Hash, TrendingUp, Calendar, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@clerk/clerk-react';
+import { useCustomAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
 import moment from 'moment';
@@ -11,6 +12,7 @@ const HashtagPage = () => {
   const { tag } = useParams();
   const navigate = useNavigate();
   const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
   
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +25,10 @@ const HashtagPage = () => {
   const fetchHashtagPosts = async () => {
     setLoading(true);
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const { data } = await api.get(`/api/hashtag/${tag}/posts`, {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
 
       if (data.success) {

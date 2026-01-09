@@ -33,25 +33,49 @@ const VerifyEmail = () => {
       }
 
       try {
-        const { data } = await axios.get(`${API_URL}/api/auth/verify-email?token=${token}`);
+        // Set a timeout for the request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        const { data } = await axios.get(`${API_URL}/api/auth/verify-email?token=${token}`, {
+          signal: controller.signal,
+          timeout: 15000
+        });
+        
+        clearTimeout(timeoutId);
         
         if (data.success) {
           setVerified(true);
-          setMessage('Your email has been successfully verified!');
-          toast.success('Email verified! You can now login.');
+          setMessage('Your email has been successfully verified! You can now access all features of Chirp.');
+          toast.success('Email verified! Logging you in...');
           
-          // Redirect to login after 3 seconds
+          // Store the auth token and user data returned from verification
+          if (data.token && data.user) {
+            localStorage.setItem('customAuthToken', data.token);
+            localStorage.setItem('customUser', JSON.stringify(data.user));
+          }
+          
+          // Redirect to home after 2 seconds
           setTimeout(() => {
-            navigate('/auth');
-          }, 3000);
+            navigate('/');
+            // Reload to update auth state
+            window.location.reload();
+          }, 2000);
         } else {
           setVerified(false);
           setMessage(data.message || 'Verification failed');
+          toast.error(data.message || 'Verification failed');
         }
       } catch (error) {
         setVerified(false);
-        setMessage(error.response?.data?.message || 'Verification failed. Token may be invalid or expired.');
-        toast.error('Email verification failed');
+        
+        if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
+          setMessage('Request timed out. Please check your internet connection and try again.');
+          toast.error('Connection timeout. Please try again.');
+        } else {
+          setMessage(error.response?.data?.message || 'Verification failed. The token may be invalid or expired.');
+          toast.error('Email verification failed');
+        }
       } finally {
         setLoading(false);
       }
@@ -110,25 +134,25 @@ const VerifyEmail = () => {
               {verified ? (
                 <>
                   <p className="text-white/60 text-sm mb-4">
-                    Redirecting to login in 3 seconds...
+                    Redirecting in 2 seconds...
                   </p>
                   <Link
-                    to="/auth"
+                    to="/"
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white text-teal-600 font-bold rounded-xl hover:bg-white/90 transition-all shadow-lg"
                   >
-                    Login Now <ArrowRight size={20} />
+                    Go to Home <ArrowRight size={20} />
                   </Link>
                 </>
               ) : (
                 <div className="space-y-4">
                   <Link
-                    to="/auth"
+                    to="/auth?mode=signup"
                     className="block px-6 py-3 bg-white text-red-600 font-bold rounded-xl hover:bg-white/90 transition-all shadow-lg"
                   >
                     Try Signing Up Again
                   </Link>
                   <p className="text-white/60 text-sm">
-                    Need help? Contact support at support@chirp.com
+                    Need help? Contact support at <a href="mailto:support@chirp.com" className="underline">support@chirp.com</a>
                   </p>
                 </div>
               )}

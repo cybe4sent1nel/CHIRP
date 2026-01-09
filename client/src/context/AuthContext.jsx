@@ -20,44 +20,29 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is authenticated via custom auth
   useEffect(() => {
-    const verifyToken = async () => {
+    const loadAuth = () => {
       const storedToken = localStorage.getItem('customAuthToken');
+      const storedUser = localStorage.getItem('customUser');
       
-      if (!storedToken) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const baseUrl = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
-        const response = await axios.get(`${baseUrl}/api/auth/verify-token`, {
-          headers: {
-            Authorization: `Bearer ${storedToken}`
-          }
-        });
-
-        if (response.data.success) {
-          setCustomUser(response.data.user);
+      console.log('AuthContext loading:', { hasToken: !!storedToken, hasUser: !!storedUser });
+      
+      if (storedToken && storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          console.log('User loaded from localStorage:', user.email);
+          setCustomUser(user);
           setToken(storedToken);
-        } else {
-          // Token invalid, clear it
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
           localStorage.removeItem('customAuthToken');
           localStorage.removeItem('customUser');
-          setToken(null);
-          setCustomUser(null);
         }
-      } catch (error) {
-        console.error('Token verification failed:', error);
-        localStorage.removeItem('customAuthToken');
-        localStorage.removeItem('customUser');
-        setToken(null);
-        setCustomUser(null);
-      } finally {
-        setLoading(false);
       }
+      
+      setLoading(false);
     };
 
-    verifyToken();
+    loadAuth();
   }, []);
 
   // Login with custom auth
@@ -81,9 +66,11 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: response.data.message };
     } catch (error) {
       console.error('Login error:', error);
+      const errorData = error.response?.data;
       return {
         success: false,
-        message: error.response?.data?.message || 'Login failed. Please try again.'
+        message: errorData?.message || 'Login failed. Please try again.',
+        shouldSignup: errorData?.shouldSignup || false
       };
     }
   };
@@ -100,20 +87,23 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        const { token, user } = response.data;
-        localStorage.setItem('customAuthToken', token);
-        localStorage.setItem('customUser', JSON.stringify(user));
-        setToken(token);
-        setCustomUser(user);
-        return { success: true, user };
+        const { message } = response.data;
+        // DON'T store token/user until email is verified
+        // Just return success message
+        return { 
+          success: true, 
+          message: message || 'Account created! Please check your email to verify.' 
+        };
       }
       
       return { success: false, message: response.data.message };
     } catch (error) {
       console.error('Signup error:', error);
+      const errorData = error.response?.data;
       return {
         success: false,
-        message: error.response?.data?.message || 'Signup failed. Please try again.'
+        message: errorData?.message || 'Signup failed. Please try again.',
+        field: errorData?.field
       };
     }
   };
@@ -147,9 +137,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Check if user is authenticated (either Clerk or custom)
-  const isAuthenticated = () => {
-    return !!(clerkUser || customUser);
-  };
+  const isAuthenticated = !!(clerkUser || customUser);
+  
+  console.log('AuthContext state:', { 
+    clerkUser: clerkUser ? 'Yes' : 'No', 
+    customUser: customUser ? 'Yes' : 'No', 
+    isAuthenticated: isAuthenticated ? 'TRUE' : 'FALSE',
+    customUserEmail: customUser?.email || 'none',
+    loading: loading ? 'Yes' : 'No'
+  });
 
   const value = {
     // User info
@@ -158,7 +154,7 @@ export const AuthProvider = ({ children }) => {
     currentUser: getCurrentUser(),
     
     // Auth status
-    isAuthenticated: isAuthenticated(),
+    isAuthenticated,
     loading,
     token,
     

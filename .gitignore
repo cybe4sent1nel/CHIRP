@@ -102,6 +102,9 @@ prisma/migrations/dev.db-journal
 .netlify
 .env.*.local
 
+# ==================== EXTERNAL PROJECTS ====================
+scribble.rs-master/
+
 # ==================== CACHE ====================
 .cache
 .eslintcache

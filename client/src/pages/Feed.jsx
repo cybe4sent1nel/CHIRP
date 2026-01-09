@@ -6,17 +6,21 @@ import PostCard from "../components/PostCard";
 import RecentMessages from "../components/RecentMessages";
 import api from "../api/axios.js";
 import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
 
 const Feed = () => {
   const {getToken} = useAuth()
+  const { token: customToken } = useCustomAuth();
   const [feeds, setFeeds] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchFeeds = async () => {
     try {
       setLoading(true)
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const {data} = await api.get('api/post/feed', {
-        headers: {Authorization: `Bearer ${await getToken()}`}
+        headers: {Authorization: `Bearer ${authToken}`}
       })
       if(data.success){
         setFeeds(data.posts)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Lottie from 'lottie-react';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
@@ -17,7 +17,53 @@ const ForgotPassword = () => {
   const [searchParams] = useSearchParams();
   const resetToken = searchParams.get('token');
 
+  // Password strength states
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    label: '',
+    requirements: {
+      minLength: false,
+      hasUpperCase: false,
+      hasLowerCase: false,
+      hasNumber: false,
+      hasSpecialChar: false
+    }
+  });
+
   const API_URL = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
+
+  const checkPasswordStrength = (password) => {
+    const requirements = {
+      minLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%]/.test(password)
+    };
+
+    const metRequirements = Object.values(requirements).filter(Boolean).length;
+    let score = 0;
+    let label = '';
+
+    if (password.length === 0) {
+      score = 0;
+      label = '';
+    } else if (metRequirements <= 2) {
+      score = 1;
+      label = 'Weak';
+    } else if (metRequirements === 3) {
+      score = 2;
+      label = 'Fair';
+    } else if (metRequirements === 4) {
+      score = 3;
+      label = 'Good';
+    } else if (metRequirements === 5) {
+      score = 4;
+      label = 'Strong';
+    }
+
+    return { score, label, requirements };
+  };
 
   useEffect(() => {
     if (resetToken) {
@@ -162,7 +208,10 @@ const ForgotPassword = () => {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="New Password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordStrength(checkPasswordStrength(e.target.value));
+                    }}
                     required
                     className="w-full pl-12 pr-12 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
                   />
@@ -174,6 +223,116 @@ const ForgotPassword = () => {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+
+                {/* Password Strength Indicator */}
+                {password && (
+                  <div className="space-y-3 mt-2">
+                    {/* Strength Bar */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/80">Password Strength:</span>
+                        <span className={`font-semibold ${
+                          passwordStrength.score === 1 ? 'text-red-400' :
+                          passwordStrength.score === 2 ? 'text-orange-400' :
+                          passwordStrength.score === 3 ? 'text-blue-400' :
+                          passwordStrength.score === 4 ? 'text-green-400' : 'text-white/60'
+                        }`}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${
+                            passwordStrength.score === 1 ? 'bg-red-400 w-1/4' :
+                            passwordStrength.score === 2 ? 'bg-orange-400 w-2/4' :
+                            passwordStrength.score === 3 ? 'bg-blue-400 w-3/4' :
+                            passwordStrength.score === 4 ? 'bg-green-400 w-full' : 'w-0'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Requirements List */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 space-y-1.5 border border-white/20">
+                      <div className="text-xs font-medium text-white mb-2">Password must contain:</div>
+                      
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.minLength ? 'text-green-300' : 'text-white/60'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.minLength 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {passwordStrength.requirements.minLength && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>At least 8 characters</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasUpperCase ? 'text-green-300' : 'text-white/60'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasUpperCase 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {passwordStrength.requirements.hasUpperCase && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One uppercase letter (A-Z)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasLowerCase ? 'text-green-300' : 'text-white/60'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasLowerCase 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {passwordStrength.requirements.hasLowerCase && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One lowercase letter (a-z)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasNumber ? 'text-green-300' : 'text-white/60'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasNumber 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {passwordStrength.requirements.hasNumber && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One number (0-9)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasSpecialChar ? 'text-green-300' : 'text-white/60'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasSpecialChar 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-white/40'
+                        }`}>
+                          {passwordStrength.requirements.hasSpecialChar && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One special character (!@#$%)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60" size={20} />

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Auth Data - Chirp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-purple-500 to-pink-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">🔧 Debug Auth</h1>
+        
+        <div class="space-y-4">
+            <div class="bg-gray-100 p-4 rounded-lg">
+                <h2 class="font-semibold text-lg mb-2">Current Auth Data:</h2>
+                <div class="text-sm space-y-2">
+                    <div>
+                        <span class="font-medium">Token:</span>
+                        <pre id="token" class="text-xs bg-white p-2 rounded mt-1 overflow-x-auto">None</pre>
+                    </div>
+                    <div>
+                        <span class="font-medium">User:</span>
+                        <pre id="user" class="text-xs bg-white p-2 rounded mt-1 overflow-x-auto">None</pre>
+                    </div>
+                </div>
+            </div>
+
+            <button 
+                onclick="clearAuth()"
+                class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+                Clear All Auth Data
+            </button>
+
+            <button 
+                onclick="location.href='/auth'"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+                Go to Login/Signup
+            </button>
+
+            <div id="result" class="text-center font-medium"></div>
+        </div>
+    </div>
+
+    <script>
+        // Display current auth data
+        function displayAuthData() {
+            const token = localStorage.getItem('customAuthToken');
+            const user = localStorage.getItem('customUser');
+            
+            document.getElementById('token').textContent = token || 'None';
+            document.getElementById('user').textContent = user ? JSON.stringify(JSON.parse(user), null, 2) : 'None';
+        }
+
+        // Clear auth data
+        function clearAuth() {
+            localStorage.removeItem('customAuthToken');
+            localStorage.removeItem('customUser');
+            
+            const result = document.getElementById('result');
+            result.textContent = '✅ Cleared! Refreshing...';
+            result.className = 'text-center font-medium text-green-600';
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        }
+
+        // Load on page load
+        displayAuthData();
+    </script>
+</body>
+</html>

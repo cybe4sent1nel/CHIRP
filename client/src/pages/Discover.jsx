@@ -3,6 +3,7 @@ import { dummyConnectionsData } from "../assets/assets";
 import { Search } from "lucide-react";
 import UserCard from "../components/UserCard";
 import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
 import { useDispatch } from "react-redux";
 import { fetchUser } from "../features/user/userSlice";
 import Loading from "../components/Loading";
@@ -15,17 +16,20 @@ const Discover = () => {
   const [loading, setLoading] = useState(false);
 
   const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
 
   const handleSearch = async (e) => {
     if (e.key === "Enter") {
       try {
         setUsers([]);
         setLoading(true);
+        const clerkToken = await getToken();
+        const authToken = clerkToken || customToken;
         const { data } = await api.post(
           "/api/user/discover",
           { input },
           {
-            headers: { Authorization: `Bearer ${await getToken()}` },
+            headers: { Authorization: `Bearer ${authToken}` },
           }
         );
         data.success ? setUsers(data.users) : toast.error(data.message);
@@ -39,8 +43,9 @@ const Discover = () => {
   };
 
   useEffect(() => {
-    getToken().then((token) => {
-      dispatch(fetchUser(token));
+    getToken().then(async (clerkToken) => {
+      const authToken = clerkToken || customToken;
+      dispatch(fetchUser(authToken));
     });
   });
 

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Auth Storage - Chirp</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button.danger {
+            background: #ef4444;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        button.success {
+            background: #10b981;
+        }
+        .success {
+            color: #10b981;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .info {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .storage-display {
+            text-align: left;
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .storage-display h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .storage-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+        .storage-item strong {
+            color: #667eea;
+        }
+        code {
+            background: #333;
+            color: #0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear Auth Storage</h1>
+        <p class="info">
+            This tool helps you clear cached authentication data.<br>
+            <strong>Use this if you're having login issues or seeing "already authenticated" messages.</strong>
+        </p>
+        
+        <div id="status"></div>
+        
+        <div class="storage-display" id="storageDisplay">
+            <h3>📦 Current Storage</h3>
+            <div id="storageContent">Loading...</div>
+        </div>
+        
+        <button class="danger" onclick="clearStorage()">🗑️ Clear All Auth Data</button>
+        <button class="success" onclick="goToAuth()">🔑 Go to Login/Signup</button>
+        <button onclick="viewStorage()">🔄 Refresh View</button>
+    </div>
+
+    <script>
+        function clearStorage() {
+            localStorage.removeItem('customAuthToken');
+            localStorage.removeItem('customUser');
+            document.getElementById('status').innerHTML = '<p class="success">✅ Storage cleared successfully!</p>';
+            setTimeout(viewStorage, 500);
+        }
+
+        function goToAuth() {
+            window.location.href = '/auth';
+        }
+
+        function viewStorage() {
+            const token = localStorage.getItem('customAuthToken');
+            const user = localStorage.getItem('customUser');
+            
+            let html = '';
+            
+            if (!token && !user) {
+                html = '<p style="text-align: center; color: #10b981;">✅ No auth data stored (clean state)</p>';
+            } else {
+                if (token) {
+                    html += '<div class="storage-item">';
+                    html += '<strong>Token:</strong><br>';
+                    html += '<code>' + token.substring(0, 50) + '...</code>';
+                    html += '</div>';
+                }
+                
+                if (user) {
+                    try {
+                        const userData = JSON.parse(user);
+                        html += '<div class="storage-item">';
+                        html += '<strong>User Data:</strong><br>';
+                        html += 'Email: <code>' + (userData.email || 'N/A') + '</code><br>';
+                        html += 'Name: <code>' + (userData.full_name || 'N/A') + '</code><br>';
+                        html += 'Email Verified: <code>' + (userData.emailVerified ? '✅ Yes' : '❌ No') + '</code>';
+                        html += '</div>';
+                    } catch (e) {
+                        html += '<div class="storage-item">';
+                        html += '<strong>User:</strong><br>';
+                        html += '<code>' + user + '</code>';
+                        html += '</div>';
+                    }
+                }
+                
+                html += '<p style="margin-top: 15px; color: #ef4444; font-size: 14px;">⚠️ Clear this data to start fresh</p>';
+            }
+            
+            document.getElementById('storageContent').innerHTML = html;
+            document.getElementById('status').innerHTML = '';
+        }
+
+        // Show current storage on load
+        window.onload = viewStorage;
+        
+        // Auto-refresh every 2 seconds
+        setInterval(viewStorage, 2000);
+    </script>
+</body>
+</html>

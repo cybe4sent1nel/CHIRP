@@ -1,5 +1,5 @@
 import { useState } from "react";
-import {  Pencil, X, Plus, Trash2, Eye, EyeOff, Briefcase, GraduationCap, Award, Globe, MapPin } from "lucide-react";
+import {  Pencil, X, Plus, Trash2, Eye, EyeOff, Briefcase, GraduationCap, Award, Globe, MapPin, Lock, Check, Mail } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from '@clerk/clerk-react'
 import toast from 'react-hot-toast'
@@ -34,6 +34,61 @@ const ExtendedProfileModal = ({ setShowEdit }) => {
   });
 
   const [privacy, setPrivacy] = useState(user.privacy_settings || {});
+
+  // Password update states
+  const [passwordData, setPasswordData] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    label: '',
+    requirements: {
+      minLength: false,
+      hasUpperCase: false,
+      hasLowerCase: false,
+      hasNumber: false,
+      hasSpecialChar: false
+    }
+  });
+
+  const API_URL = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
+
+  const checkPasswordStrength = (password) => {
+    const requirements = {
+      minLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%]/.test(password)
+    };
+
+    const metRequirements = Object.values(requirements).filter(Boolean).length;
+    let score = 0;
+    let label = '';
+
+    if (password.length === 0) {
+      score = 0;
+      label = '';
+    } else if (metRequirements <= 2) {
+      score = 1;
+      label = 'Weak';
+    } else if (metRequirements === 3) {
+      score = 2;
+      label = 'Fair';
+    } else if (metRequirements === 4) {
+      score = 3;
+      label = 'Good';
+    } else if (metRequirements === 5) {
+      score = 4;
+      label = 'Strong';
+    }
+
+    return { score, label, requirements };
+  };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -138,11 +193,72 @@ const ExtendedProfileModal = ({ setShowEdit }) => {
     setEditForm({...editForm, skills: editForm.skills.filter(s => s !== skill)});
   };
 
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    if (passwordStrength.score < 4) {
+      toast.error('Please use a strong password that meets all requirements');
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const { data } = await api.post('/api/user/update-password', {
+        oldPassword: passwordData.oldPassword,
+        newPassword: passwordData.newPassword
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (data.success) {
+        toast.success('Password updated successfully!');
+        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        setPasswordStrength({
+          score: 0,
+          label: '',
+          requirements: {
+            minLength: false,
+            hasUpperCase: false,
+            hasLowerCase: false,
+            hasNumber: false,
+            hasSpecialChar: false
+          }
+        });
+      } else {
+        toast.error(data.message || 'Failed to update password');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update password');
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    try {
+      const { data } = await api.post(`${API_URL}/api/auth/forgot-password`, { 
+        email: user.email 
+      });
+      
+      if (data.success) {
+        toast.success('Password reset link sent to your email!');
+      } else {
+        toast.error(data.message || 'Failed to send reset email');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send reset email');
+    }
+  };
+
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Pencil },
     { id: 'professional', label: 'Professional', icon: Briefcase },
     { id: 'education', label: 'Education', icon: GraduationCap },
     { id: 'certificates', label: 'Certificates', icon: Award },
+    { id: 'security', label: 'Security', icon: Lock },
     { id: 'privacy', label: 'Privacy', icon: EyeOff },
   ];
 
@@ -660,6 +776,225 @@ const ExtendedProfileModal = ({ setShowEdit }) => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Password & Security</h3>
+              <p className="text-sm text-gray-600 mb-6">Update your password to keep your account secure</p>
+
+              <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                {/* Old Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showOldPassword ? 'text' : 'password'}
+                      value={passwordData.oldPassword}
+                      onChange={(e) => setPasswordData({...passwordData, oldPassword: e.target.value})}
+                      required
+                      className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter your current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOldPassword(!showOldPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showOldPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Forgot Password Link */}
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail size={16} className="text-indigo-600" />
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmail}
+                    className="text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Forgot password? Send reset link to email
+                  </button>
+                </div>
+
+                <div className="border-t border-gray-200 pt-6"></div>
+
+                {/* New Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => {
+                        setPasswordData({...passwordData, newPassword: e.target.value});
+                        setPasswordStrength(checkPasswordStrength(e.target.value));
+                      }}
+                      required
+                      className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter your new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Strength Indicator */}
+                {passwordData.newPassword && (
+                  <div className="space-y-3">
+                    {/* Strength Bar */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">Password Strength:</span>
+                        <span className={`font-semibold ${
+                          passwordStrength.score === 1 ? 'text-red-500' :
+                          passwordStrength.score === 2 ? 'text-orange-500' :
+                          passwordStrength.score === 3 ? 'text-blue-500' :
+                          passwordStrength.score === 4 ? 'text-green-500' : 'text-gray-400'
+                        }`}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${
+                            passwordStrength.score === 1 ? 'bg-red-500 w-1/4' :
+                            passwordStrength.score === 2 ? 'bg-orange-500 w-2/4' :
+                            passwordStrength.score === 3 ? 'bg-blue-500 w-3/4' :
+                            passwordStrength.score === 4 ? 'bg-green-500 w-full' : 'w-0'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Requirements List */}
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+                      <div className="text-xs font-medium text-gray-700 mb-2">Password must contain:</div>
+                      
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.minLength ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.minLength 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {passwordStrength.requirements.minLength && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>At least 8 characters</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasUpperCase ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasUpperCase 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {passwordStrength.requirements.hasUpperCase && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One uppercase letter (A-Z)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasLowerCase ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasLowerCase 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {passwordStrength.requirements.hasLowerCase && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One lowercase letter (a-z)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasNumber ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasNumber 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {passwordStrength.requirements.hasNumber && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One number (0-9)</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 text-xs transition-colors ${
+                        passwordStrength.requirements.hasSpecialChar ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        <div className={`flex items-center justify-center w-4 h-4 rounded-full border transition-all ${
+                          passwordStrength.requirements.hasSpecialChar 
+                            ? 'bg-green-500 border-green-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {passwordStrength.requirements.hasSpecialChar && (
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <span>One special character (!@#$%)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Confirm your new password"
+                    />
+                  </div>
+                </div>
+
+                {/* Update Button */}
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg"
+                >
+                  Update Password
+                </button>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Security Tip:</strong> Use a strong, unique password and consider enabling two-factor authentication for extra security.
+                  </p>
+                </div>
+              </form>
             </div>
           )}
 

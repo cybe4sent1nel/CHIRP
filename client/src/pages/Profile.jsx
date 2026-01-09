@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import ProfileModal from "../components/ProfileModal";
 import ExtendedProfileModal from "../components/ExtendedProfileModal";
 import {useAuth} from '@clerk/clerk-react'
+import { useCustomAuth } from "../context/AuthContext";
 import api from '../api/axios.js'
 import {toast} from 'react-hot-toast'
 import { useSelector } from "react-redux";
@@ -17,6 +18,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.value)
   const {getToken} = useAuth()
+  const { token: customToken } = useCustomAuth();
   const { profileId } = useParams();
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -24,10 +26,11 @@ const Profile = () => {
   const [showEdit, setShowEdit] = useState(false);
 
   const fetchUser = async (profileId) => {
-    const token = getToken()
+    const clerkToken = await getToken();
+    const authToken = clerkToken || customToken;
     try {
       const {data} = await api.post('/api/user/profiles', {profileId}, {
-        headers: {Authorization: `Bearer ${token}`}
+        headers: {Authorization: `Bearer ${authToken}`}
       })
       if(data.success){
         setUser(data.profile)

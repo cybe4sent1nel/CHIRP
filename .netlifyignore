@@ -1,0 +1,22 @@
+# Netlify ignore patterns
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+.git/
+.netlify/
+doodledash-go/
+scribble.rs-master/
+worker/
+*.md
+*.ps1
+*.bat
+scripts/
+migrations/
+*.test.js
+*.spec.js

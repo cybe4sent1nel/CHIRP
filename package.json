@@ -10,8 +10,11 @@
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
     "build:client": "npm run build --prefix client",
-    "build": "npm run build:client",
+    "build:server": "npm install --prefix server",
+    "build:all": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "build": "npm run build:all",
     "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "vercel-build": "npm run build:all",
     "start:win": "start.bat",
     "start:ps": "powershell -ExecutionPolicy Bypass -File start.ps1"
   },

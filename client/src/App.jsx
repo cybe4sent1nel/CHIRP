@@ -85,7 +85,7 @@ window.addEventListener('unhandledrejection', (event) => {
 const App = () => {
   const { user } = useUser();
   const { getToken } = useAuth();
-  const { isAuthenticated: customAuthActive } = useCustomAuth();
+  const { isAuthenticated: customAuthActive, loading: authLoading } = useCustomAuth();
   const { pathname } = useLocation();
   const pathnameRef = useRef(pathname);
   const isLoading = useSelector((state) => state.ui?.isLoading || false);
@@ -295,6 +295,11 @@ const App = () => {
         }}
       />
     );
+  }
+
+  // Show loader while checking authentication
+  if (authLoading) {
+    return <PageLoader />;
   }
 
   return (

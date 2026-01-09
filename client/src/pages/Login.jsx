@@ -436,7 +436,7 @@ const LegalModal = ({ isOpen, onClose, type, onAgree }) => {
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition"
+              className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 border border-gray-600 transition"
             >
               Cancel
             </button>
@@ -497,8 +497,16 @@ const Login = () => {
   const handleModalAgree = () => {
     if (modalType === "terms") {
       setTermsAgreed(true);
+      setModalType(null);
+      // Auto-show privacy modal after terms
+      setTimeout(() => {
+        if (!privacyAgreed) {
+          setModalType("privacy");
+        }
+      }, 300);
     } else if (modalType === "privacy") {
       setPrivacyAgreed(true);
+      setModalType(null);
     }
   };
 

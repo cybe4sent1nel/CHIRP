@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Bell, Heart, MessageCircle, UserPlus, CheckCircle, X, CheckCheck, Repeat2 } from "lucide-react";
 import moment from "moment";
 import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -82,14 +83,17 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
   const navigate = useNavigate();
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
       setLoading(true);
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const { data } = await api.get('/api/notification/user?limit=50', {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
       
       if (data.success) {
@@ -118,8 +122,10 @@ const Notifications = () => {
 
   const handleDelete = async (id) => {
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       await api.delete(`/api/notification/${id}`, {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
       
       setNotifications(prev => prev.filter(n => n._id !== id));
@@ -131,8 +137,10 @@ const Notifications = () => {
 
   const handleMarkAsRead = async (id) => {
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       await api.put(`/api/notification/read/${id}`, {}, {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
       
       setNotifications(prev => 
@@ -145,8 +153,10 @@ const Notifications = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       await api.put('/api/notification/read-all', {}, {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${authToken}` }
       });
       
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));

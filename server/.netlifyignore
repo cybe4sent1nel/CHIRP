@@ -1,0 +1,15 @@
+# Netlify ignore patterns
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+scripts/
+migrations/
+*.test.js
+*.spec.js
+.netlify/

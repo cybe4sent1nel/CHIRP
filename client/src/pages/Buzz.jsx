@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Hash, Eye, MessageCircle, ThumbsUp, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { useCustomAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import moment from 'moment';
@@ -12,6 +13,7 @@ const Buzz = () => {
   const [timeframe, setTimeframe] = useState('week');
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,12 +23,14 @@ const Buzz = () => {
   const fetchTrendingData = async () => {
     try {
       setLoading(true);
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
       const [hashtagsRes, postsRes] = await Promise.all([
         api.get(`/api/hashtag/trending?timeframe=${timeframe}&limit=10`, {
-          headers: { Authorization: `Bearer ${await getToken()}` }
+          headers: { Authorization: `Bearer ${authToken}` }
         }),
         api.get('/api/hashtag/posts/trending?limit=10', {
-          headers: { Authorization: `Bearer ${await getToken()}` }
+          headers: { Authorization: `Bearer ${authToken}` }
         })
       ]);
 

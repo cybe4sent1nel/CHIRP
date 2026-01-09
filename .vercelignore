@@ -1,0 +1,17 @@
+# Vercel ignore patterns
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+.git/
+doodledash-go/
+scribble.rs-master/
+worker/
+*.md
+*.ps1
+*.bat

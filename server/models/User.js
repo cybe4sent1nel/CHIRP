@@ -97,6 +97,11 @@ const userSchema = mongoose.Schema({
         privateAccount: {type: Boolean, default: false},
         allowAIFeatures: {type: Boolean, default: true},
     },
+    // Login tracking for security
+    lastLoginLocation: {type: String},
+    lastLoginDevice: {type: String},
+    lastLoginIP: {type: String},
+    lastLoginAt: {type: Date},
 }, {timestamps: true, minimize: false})
 
 // Create a model with schema

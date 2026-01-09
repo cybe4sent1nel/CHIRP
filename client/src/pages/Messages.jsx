@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useAuth } from '@clerk/clerk-react'
+import { useCustomAuth } from '../context/AuthContext';
 import UserStatus from '../components/UserStatus';
 import api from '../api/axios';
 
@@ -10,6 +11,7 @@ const Messages = () => {
   const {connections, onlineUsers} = useSelector(state => state.connections)
   const navigate = useNavigate()
   const { getToken } = useAuth()
+  const { token: customToken } = useCustomAuth();
   const [searchQuery, setSearchQuery] = useState('')
   const [showDMSettings, setShowDMSettings] = useState(false)
   const [dmOpen, setDmOpen] = useState(true)

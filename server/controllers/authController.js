@@ -11,6 +11,7 @@ import {
   passwordChangedEmail,
   loginAlertEmail
 } from '../configs/emailTemplates.js';
+import { getLoginInfo } from '../utils/deviceDetection.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -55,20 +56,33 @@ export const signup = async (req, res) => {
       });
     }
 
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // Check if email exists
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Email already registered' 
+        message: 'This email is already registered. Please try logging in or use a different email.',
+        field: 'email'
       });
     }
 
-    // Check username availability
+    // Check username availability if provided
     let finalUsername = username || email.split('@')[0];
-    const usernameExists = await User.findOne({ username: finalUsername });
-    if (usernameExists) {
-      finalUsername = finalUsername + Math.floor(Math.random() * 10000);
+    if (username) {
+      const usernameExists = await User.findOne({ username: finalUsername });
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'This username is already taken. Please choose a different username.',
+          field: 'username'
+        });
+      }
+    } else {
+      // Auto-generate unique username from email
+      const usernameExists = await User.findOne({ username: finalUsername });
+      if (usernameExists) {
+        finalUsername = finalUsername + Math.floor(Math.random() * 10000);
+      }
     }
 
     // Hash password
@@ -94,23 +108,38 @@ export const signup = async (req, res) => {
       profile_picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(full_name)}&background=667eea&color=fff&size=200`
     });
 
+    // Log user creation for debugging
+    console.log('User created with ID:', user._id);
+    console.log('Verification token saved:', user.verificationToken);
+    console.log('Token length:', user.verificationToken?.length);
+
     // Generate JWT
     const token = generateToken(user._id);
 
     // Send verification email
     const verificationLink = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
-    await sendEmailWithFallback({
-      to: email,
-      subject: '✨ Verify Your Email - Welcome to Chirp!',
-      body: verificationEmail(full_name, verificationLink)
-    });
+    console.log('Sending verification email to:', email);
+    console.log('Verification token:', verificationToken);
+    console.log('Verification link:', verificationLink);
+    
+    try {
+      await sendEmailWithFallback({
+        to: email,
+        subject: '✨ Verify Your Email - Welcome to Chirp!',
+        body: verificationEmail(full_name, verificationLink)
+      });
+      console.log('Verification email sent successfully');
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Don't fail signup if email fails
+    }
 
-    // Send welcome email
-    await sendEmailWithFallback({
+    // Send welcome email (non-blocking)
+    sendEmailWithFallback({
       to: email,
       subject: '🎉 Welcome to Chirp!',
       body: welcomeEmail(full_name)
-    });
+    }).catch(err => console.error('Failed to send welcome email:', err));
 
     res.status(201).json({
       success: true,
@@ -155,7 +184,8 @@ export const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid credentials' 
+        message: 'No account found with this email/username. Please sign up to create a new account.',
+        shouldSignup: true
       });
     }
 
@@ -164,23 +194,41 @@ export const login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid credentials' 
+        message: 'Incorrect password. Please try again or use "Forgot Password" to reset it.',
+        field: 'password'
       });
     }
 
     // Generate JWT
     const token = generateToken(user._id);
 
-    // Send login alert email (optional)
-    try {
-      await sendEmailWithFallback({
-        to: user.email,
-        subject: '🔔 New Login Detected',
-        body: loginAlertEmail(user.full_name, 'Unknown', 'Unknown')
-      });
-    } catch (emailError) {
-      console.error('Failed to send login alert:', emailError);
+    // Get login information (location & device)
+    const loginInfo = getLoginInfo(req);
+
+    // Check if location or device has changed
+    const locationChanged = user.lastLoginLocation && user.lastLoginLocation !== loginInfo.location;
+    const deviceChanged = user.lastLoginDevice && user.lastLoginDevice !== loginInfo.device;
+
+    // Send login alert email only if location or device changed
+    if (locationChanged || deviceChanged) {
+      try {
+        await sendEmailWithFallback({
+          to: user.email,
+          subject: '🔔 New Login Detected',
+          body: loginAlertEmail(user.full_name, loginInfo.location, loginInfo.device)
+        });
+        console.log('Login alert sent - Location changed:', locationChanged, '| Device changed:', deviceChanged);
+      } catch (emailError) {
+        console.error('Failed to send login alert:', emailError);
+      }
     }
+
+    // Update last login information
+    user.lastLoginLocation = loginInfo.location;
+    user.lastLoginDevice = loginInfo.device;
+    user.lastLoginIP = loginInfo.ip;
+    user.lastLoginAt = new Date();
+    await user.save();
 
     res.json({
       success: true,
@@ -209,6 +257,8 @@ export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
 
+    console.log('Verification attempt with token:', token ? 'Token received' : 'No token');
+
     if (!token) {
       return res.status(400).json({ 
         success: false, 
@@ -216,21 +266,49 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
+    // Find user with this verification token
     const user = await User.findOne({ verificationToken: token });
+    
+    console.log('User found:', user ? `Yes (${user.email})` : 'No');
+    
     if (!user) {
+      // Check if user already verified
+      const verifiedUser = await User.findOne({ email: { $exists: true }, emailVerified: true });
+      if (verifiedUser) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'This verification link has already been used or has expired. Please try logging in.' 
+        });
+      }
+      
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid or expired verification token' 
+        message: 'Invalid or expired verification token. Please request a new verification email.' 
       });
     }
 
+    // Update user
     user.emailVerified = true;
     user.verificationToken = undefined;
     await user.save();
 
+    console.log('Email verified successfully for:', user.email);
+
+    // Generate JWT token for auto-login
+    const authToken = generateToken(user._id);
+
     res.json({
       success: true,
-      message: 'Email verified successfully! You can now use all features.'
+      message: 'Email verified successfully! You can now use all features.',
+      token: authToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        full_name: user.full_name,
+        username: user.username,
+        profile_picture: user.profile_picture,
+        emailVerified: user.emailVerified
+      }
     });
   } catch (error) {
     console.error('Email verification error:', error);
