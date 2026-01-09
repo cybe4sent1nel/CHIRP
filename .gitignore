@@ -162,3 +162,4 @@ verify-*.js
 !package-lock.json
 !tsconfig.json
 !jsconfig.json
+!vercel.json

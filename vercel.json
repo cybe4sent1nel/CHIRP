@@ -1,0 +1,44 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build:all",
+  "outputDirectory": "client/dist",
+  "builds": [
+    {
+      "src": "server/server.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "server/configs/**",
+          "server/controllers/**",
+          "server/models/**",
+          "server/routes/**",
+          "server/middlewares/**",
+          "server/utils/**",
+          "server/inngest/**",
+          "server/lib/**",
+          "server/data/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/server.js"
+    },
+    {
+      "src": "/inngest",
+      "dest": "server/server.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
