@@ -22,22 +22,14 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "server/server.js"
+      "source": "/api/(.*)",
+      "destination": "server/server.js"
     },
     {
-      "src": "/inngest",
-      "dest": "server/server.js"
-    },
-    {
-      "src": "/(.*\\..+)",
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/inngest",
+      "destination": "server/server.js"
     }
   ],
   "headers": [
@@ -51,6 +43,8 @@
       ]
     }
   ],
+  "cleanUrls": true,
+  "trailingSlash": false,
   "env": {
     "NODE_ENV": "production"
   }
