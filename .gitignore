@@ -156,10 +156,15 @@ start.js
 test-*.js
 verify-*.js
 
-# Ignore JSON data files (except package files)
+# Ignore JSON data files (except package files and config)
 *.json
 !package.json
 !package-lock.json
 !tsconfig.json
 !jsconfig.json
 !vercel.json
+# Allow Lottie animation files and data
+!**/animations/*.json
+!**/public/*.json
+!**/data/*.json
+!client/public/*.json

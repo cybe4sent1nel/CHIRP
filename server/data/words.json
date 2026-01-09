@@ -1,0 +1,21 @@
+{
+  "easy": [
+    "cat", "dog", "house", "tree", "sun", "moon", "car", "ball", "fish", "bird",
+    "flower", "star", "heart", "apple", "book", "chair", "clock", "cup", "door", "bed",
+    "hat", "key", "lamp", "pen", "shoe", "sock", "table", "watch", "bag", "box"
+  ],
+  "medium": [
+    "guitar", "rainbow", "castle", "bicycle", "butterfly", "camera", "dragon", "elephant",
+    "fireworks", "helicopter", "island", "jellyfish", "kangaroo", "lighthouse", "mountain",
+    "octopus", "penguin", "pyramid", "rocket", "sandwich", "telescope", "umbrella",
+    "volcano", "waterfall", "windmill", "airplane", "balloon", "campfire", "dolphin",
+    "guitar", "hamburger", "icecream", "jungle", "keyboard", "laptop", "mirror"
+  ],
+  "hard": [
+    "astronaut", "barbecue", "carousel", "dinosaur", "ecosystem", "firefighter",
+    "giraffe", "harmonica", "igloo", "jellybean", "kaleidoscope", "lasagna",
+    "microphone", "newspaper", "orchestra", "parachute", "quarterback", "rhinoceros",
+    "saxophone", "telescope", "unicorn", "veterinarian", "watermelon", "xylophone",
+    "zodiac", "ambulance", "blueprint", "chandelier", "dominoes", "escalator"
+  ]
+}
