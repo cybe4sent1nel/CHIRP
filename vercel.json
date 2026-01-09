@@ -1,35 +1,21 @@
 {
-  "version": 2,
-  "name": "chirp-production",
   "buildCommand": "npm run build:all",
   "outputDirectory": "client/dist",
-  "builds": [
-    {
-      "src": "server/server.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "server/configs/**",
-          "server/controllers/**",
-          "server/models/**",
-          "server/routes/**",
-          "server/middlewares/**",
-          "server/utils/**",
-          "server/inngest/**",
-          "server/lib/**",
-          "server/data/**"
-        ]
-      }
+  "framework": null,
+  "functions": {
+    "server/server.js": {
+      "memory": 1024,
+      "maxDuration": 10
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "server/server.js"
+      "destination": "/server/server.js"
     },
     {
       "source": "/inngest",
-      "destination": "server/server.js"
+      "destination": "/server/server.js"
     }
   ],
   "headers": [
@@ -43,8 +29,6 @@
       ]
     }
   ],
-  "cleanUrls": true,
-  "trailingSlash": false,
   "env": {
     "NODE_ENV": "production"
   }
