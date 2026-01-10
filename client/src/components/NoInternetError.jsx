@@ -8,43 +8,70 @@ const NoInternetError = ({ onRetry }) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Hardcoded animated SVG - no fetch needed
-    containerRef.current.innerHTML = `
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <style>
-            @keyframes float {
-              0% { transform: translateY(0px); }
-              50% { transform: translateY(-10px); }
-              100% { transform: translateY(0px); }
-            }
-            .floating-icon {
-              animation: float 3s ease-in-out infinite;
-              transform-origin: center;
-            }
-          </style>
-        </defs>
-        
-        <!-- Wifi symbol with animation -->
-        <g class="floating-icon">
-          <!-- Wifi waves -->
-          <circle cx="100" cy="80" r="60" fill="none" stroke="#667eea" stroke-width="2" opacity="0.3"/>
-          <circle cx="100" cy="80" r="40" fill="none" stroke="#764ba2" stroke-width="2" opacity="0.6"/>
-          <circle cx="100" cy="80" r="20" fill="none" stroke="#667eea" stroke-width="2"/>
+    const loadAnimation = async () => {
+      try {
+        // Try to fetch from cache or network
+        const response = await fetch('/animations/nodata.json');
+        if (response.ok) {
+          const animationData = await response.json();
+          if (!containerRef.current) return;
           
-          <!-- Center dot -->
-          <circle cx="100" cy="80" r="5" fill="#764ba2"/>
+          lottie.loadAnimation({
+            container: containerRef.current,
+            renderer: 'svg',
+            loop: true,
+            autoplay: true,
+            animationData: animationData,
+          });
+          return;
+        }
+      } catch (err) {
+        console.log('Animation fetch failed, using SVG fallback:', err.message);
+      }
+
+      // Fallback to hardcoded SVG if fetch fails
+      if (!containerRef.current) return;
+      containerRef.current.innerHTML = `
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <style>
+              @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+                100% { transform: translateY(0px); }
+              }
+              .floating-icon {
+                animation: float 3s ease-in-out infinite;
+                transform-origin: center;
+              }
+            </style>
+          </defs>
           
-          <!-- X mark below -->
-          <line x1="80" y1="140" x2="120" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-          <line x1="120" y1="140" x2="80" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-        </g>
-      </svg>
-    `;
+          <!-- Wifi symbol with animation -->
+          <g class="floating-icon">
+            <!-- Wifi waves -->
+            <circle cx="100" cy="80" r="60" fill="none" stroke="#667eea" stroke-width="2" opacity="0.3"/>
+            <circle cx="100" cy="80" r="40" fill="none" stroke="#764ba2" stroke-width="2" opacity="0.6"/>
+            <circle cx="100" cy="80" r="20" fill="none" stroke="#667eea" stroke-width="2"/>
+            
+            <!-- Center dot -->
+            <circle cx="100" cy="80" r="5" fill="#764ba2"/>
+            
+            <!-- X mark below -->
+            <line x1="80" y1="140" x2="120" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+            <line x1="120" y1="140" x2="80" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+          </g>
+        </svg>
+      `;
+    };
+
+    loadAnimation();
 
     return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      try {
+        lottie.destroy();
+      } catch (err) {
+        // ignore
       }
     };
   }, []);
