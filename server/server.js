@@ -110,13 +110,18 @@ app.use('/api/user', userRouter)
 app.use('/api/post', postRouter) 
 app.use('/api/story', storyRouter) 
 
-// SSE route for real-time messages - Must be BEFORE message router to avoid conflicts
+app.use('/api/message', messageRouter)
+
+// SSE route for real-time messages - Match only user IDs (start with "user_")
 app.get("/api/message/:userId", (req, res) => {
-  console.log("SSE route handler called for userId:", req.params.userId);
+  const { userId } = req.params;
+  // Only handle SSE for actual user IDs, not API endpoints
+  if (!userId.startsWith('user_')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  console.log("SSE route handler called for userId:", userId);
   sseController(req, res);
 });
-
-app.use('/api/message', messageRouter)
 
 app.use('/api/ai', aiRouter)
 app.use('/api/news', newsRouter)
