@@ -666,7 +666,7 @@ const Login = () => {
              <div className="flex flex-col sm:flex-row gap-4">
                <AnimatedButton
                  label="Sign up"
-                 onClick={() => window.location.href = '/auth?mode=signup'}
+                 onClick={() => setShowSignUp(true)}
                  disabled={!agreed}
                  color="#fec195"
                  textColor="#181818"
@@ -675,7 +675,7 @@ const Login = () => {
 
                <AnimatedButton
                  label="Sign in"
-                 onClick={() => window.location.href = '/auth?mode=login'}
+                 onClick={() => setShowSignIn(true)}
                  disabled={!agreed}
                  color="#4ade80"
                  textColor="#ffffff"
@@ -712,7 +712,10 @@ const Login = () => {
                 Trusted by thousands of creators
               </span>
             </div>
-          </div>
+            {/* Footer - visible app name and policy links for OAuth verification */}
+            <div className="mt-6 text-sm text-gray-500">
+              <strong>CHIRP</strong> — <a href="/privacy-policy" className="hover:underline text-amber-300">Privacy Policy</a> · <a href="/terms-of-service" className="hover:underline text-amber-300">Terms</a>
+            </div>          </div>
         </div>
       </div>
     </div>
