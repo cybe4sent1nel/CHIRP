@@ -10,10 +10,25 @@ const NoInternetError = ({ onRetry }) => {
 
     const loadAnimation = async () => {
       try {
+        // Try to fetch the animation file
         const response = await fetch('/animations/nodata.json');
         
         if (!response.ok) {
-          console.error('Failed to fetch animation:', response.status, response.statusText);
+          console.warn('Failed to fetch animation:', response.status, response.statusText);
+          // Fallback: use a simple animated SVG if fetch fails
+          containerRef.current.innerHTML = `
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="80" fill="none" stroke="#667eea" stroke-width="2">
+                <animate attributeName="r" values="80;90;80" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="100" cy="100" r="60" fill="none" stroke="#764ba2" stroke-width="2">
+                <animate attributeName="r" values="60;50;60" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <text x="100" y="110" text-anchor="middle" font-size="14" fill="#666" font-family="Arial">
+                Loading...
+              </text>
+            </svg>
+          `;
           return;
         }
 
@@ -30,6 +45,19 @@ const NoInternetError = ({ onRetry }) => {
         });
       } catch (err) {
         console.error('Error loading animation:', err);
+        // Fallback: show simple SVG
+        if (containerRef.current) {
+          containerRef.current.innerHTML = `
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="80" fill="none" stroke="#667eea" stroke-width="2">
+                <animate attributeName="r" values="80;90;80" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="100" cy="100" r="60" fill="none" stroke="#764ba2" stroke-width="2">
+                <animate attributeName="r" values="60;50;60" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          `;
+        }
       }
     };
 
