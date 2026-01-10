@@ -1,6 +1,6 @@
 import Message from "../models/Message.js";
 import fs from "fs";
-import imageKit from "../configs/imagekit.js";
+import imageKit from "../configs/imageKit.js";
 
 // Object for server side event for real time message
 const connections = {};
