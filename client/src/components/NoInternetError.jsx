@@ -8,66 +8,43 @@ const NoInternetError = ({ onRetry }) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const loadAnimation = async () => {
-      try {
-        // Try to fetch the animation file
-        const response = await fetch('/animations/nodata.json');
+    // Hardcoded animated SVG - no fetch needed
+    containerRef.current.innerHTML = `
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style>
+            @keyframes float {
+              0% { transform: translateY(0px); }
+              50% { transform: translateY(-10px); }
+              100% { transform: translateY(0px); }
+            }
+            .floating-icon {
+              animation: float 3s ease-in-out infinite;
+              transform-origin: center;
+            }
+          </style>
+        </defs>
         
-        if (!response.ok) {
-          console.warn('Failed to fetch animation:', response.status, response.statusText);
-          // Fallback: use a simple animated SVG if fetch fails
-          containerRef.current.innerHTML = `
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#667eea" stroke-width="2">
-                <animate attributeName="r" values="80;90;80" dur="1.5s" repeatCount="indefinite"/>
-              </circle>
-              <circle cx="100" cy="100" r="60" fill="none" stroke="#764ba2" stroke-width="2">
-                <animate attributeName="r" values="60;50;60" dur="1.5s" repeatCount="indefinite"/>
-              </circle>
-              <text x="100" y="110" text-anchor="middle" font-size="14" fill="#666" font-family="Arial">
-                Loading...
-              </text>
-            </svg>
-          `;
-          return;
-        }
-
-        const animationData = await response.json();
-        
-        if (!containerRef.current) return;
-
-        lottie.loadAnimation({
-          container: containerRef.current,
-          renderer: 'svg',
-          loop: true,
-          autoplay: true,
-          animationData: animationData,
-        });
-      } catch (err) {
-        console.error('Error loading animation:', err);
-        // Fallback: show simple SVG
-        if (containerRef.current) {
-          containerRef.current.innerHTML = `
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#667eea" stroke-width="2">
-                <animate attributeName="r" values="80;90;80" dur="1.5s" repeatCount="indefinite"/>
-              </circle>
-              <circle cx="100" cy="100" r="60" fill="none" stroke="#764ba2" stroke-width="2">
-                <animate attributeName="r" values="60;50;60" dur="1.5s" repeatCount="indefinite"/>
-              </circle>
-            </svg>
-          `;
-        }
-      }
-    };
-
-    loadAnimation();
+        <!-- Wifi symbol with animation -->
+        <g class="floating-icon">
+          <!-- Wifi waves -->
+          <circle cx="100" cy="80" r="60" fill="none" stroke="#667eea" stroke-width="2" opacity="0.3"/>
+          <circle cx="100" cy="80" r="40" fill="none" stroke="#764ba2" stroke-width="2" opacity="0.6"/>
+          <circle cx="100" cy="80" r="20" fill="none" stroke="#667eea" stroke-width="2"/>
+          
+          <!-- Center dot -->
+          <circle cx="100" cy="80" r="5" fill="#764ba2"/>
+          
+          <!-- X mark below -->
+          <line x1="80" y1="140" x2="120" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+          <line x1="120" y1="140" x2="80" y2="180" stroke="#667eea" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+        </g>
+      </svg>
+    `;
 
     return () => {
-      try {
-        lottie.destroy();
-      } catch (err) {
-        console.error('Error destroying animation:', err);
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
   }, []);
