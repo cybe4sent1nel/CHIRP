@@ -260,10 +260,9 @@ const Settings = () => {
                           alt="Profile"
                           className="w-24 h-24 rounded-full object-cover border-4 border-indigo-500 mb-2"
                         />
-                        <p className="text-sm text-gray-600">Current Avatar</p>
+                        <p className="text-sm text-gray-600">Your Avatar</p>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600 mb-3">Your avatar is generated from your email address (DiceBear).</p>
                         <p className="text-sm text-gray-500">To upload a custom profile picture, go to your Profile page and edit your profile information.</p>
                       </div>
                     </div>

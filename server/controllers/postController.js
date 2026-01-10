@@ -78,12 +78,13 @@ export const getFeedPost = async (req, res) => {
           return res.status(404).json({success: false, message: "User not found"})
         }
 
-        // User connections and followings
-        const userIds = [userId, ...(user.connections || []), ...(user.following || [])]
-        const posts = await Post.find({user: {$in: userIds}})
+        // Get posts from all users (public feed) sorted by newest first
+        // This allows every user to see posts from everyone on the home page
+        const posts = await Post.find({})
             .populate('user')
             .populate('likes_count', '_id full_name username profile_picture')
             .sort({createdAt: -1})
+            .limit(100) // Limit to 100 most recent posts
         
         // Add user reaction info to each post
         const postsWithReactions = posts.map(post => {

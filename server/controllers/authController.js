@@ -97,7 +97,7 @@ export const signup = async (req, res) => {
     // Create user ID
     const userId = 'user_' + crypto.randomBytes(16).toString('hex');
 
-    // Create user
+    // Create user with unique dicebear avatar based on email
     const user = await User.create({
       _id: userId,
       email,
@@ -107,7 +107,7 @@ export const signup = async (req, res) => {
       authProvider: 'local',
       emailVerified: false,
       verificationToken,
-      profile_picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(full_name)}&background=667eea&color=fff&size=200`
+      profile_picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(email)}&scale=80`
     });
 
     // Log user creation for debugging
