@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/axios';
 import { useUser } from '@clerk/clerk-react';
 
 const AuthContext = createContext(null);
@@ -48,8 +48,9 @@ export const AuthProvider = ({ children }) => {
   // Login with custom auth
   const customLogin = async (identifier, password) => {
     try {
-      const baseUrl = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
-      const response = await axios.post(`${baseUrl}/api/auth/login`, {
+      const endpoint = '/api/auth/login';
+      console.log('customLogin: POST', endpoint, { identifier });
+      const response = await api.post(endpoint, {
         identifier,
         password
       });
@@ -65,7 +66,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: false, message: response.data.message };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error:', error.response ?? error);
       const errorData = error.response?.data;
       return {
         success: false,
@@ -78,8 +79,9 @@ export const AuthProvider = ({ children }) => {
   // Signup with custom auth
   const customSignup = async (email, password, full_name, username) => {
     try {
-      const baseUrl = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
-      const response = await axios.post(`${baseUrl}/api/auth/signup`, {
+      const endpoint = '/api/auth/signup';
+      console.log('customSignup: POST', endpoint, { email, full_name, username });
+      const response = await api.post(endpoint, {
         email,
         password,
         full_name,
@@ -98,7 +100,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: false, message: response.data.message };
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('Signup error:', error.response ?? error);
       const errorData = error.response?.data;
       return {
         success: false,
