@@ -1,6 +1,15 @@
 {
   "version": 2,
-  "routes": [    { "src": "\/api\/(.*)", "dest": "\/api\/$1" },    { "handle": "filesystem" },
+  "buildCommand": "npm run build",
+  "outputDirectory": "client/dist",
+  "functions": {
+    "api/[...all].js": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/[...all].js" },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

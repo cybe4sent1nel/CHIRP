@@ -17,14 +17,15 @@ import { protect } from "../middlewares/auth.js";
 
 const messageRouter = express.Router();
 
-// SSE route is now handled directly in server.js before middleware
-// Only keep POST routes here
+// Polling endpoint - returns online users (no auth required for now)
 messageRouter.get('/online/:userId', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     const users = Array.from(global.__onlineUsers ? global.__onlineUsers.keys() : []);
-    res.json({ users });
+    res.json({ success: true, users });
   } catch (err) {
-    res.json({ users: [] });
+    res.status(500).json({ success: false, error: err.message, users: [] });
   }
 });
 
