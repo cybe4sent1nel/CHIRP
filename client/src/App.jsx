@@ -207,8 +207,8 @@ const App = () => {
 
       const connectSSE = () => {
         try {
-          // Handle both /api and non-/api base URLs
-          let baseUrl = import.meta.env.VITE_BASEURL || 'http://localhost:4000';
+          // Use full absolute URL for SSE
+          let baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || window.location.origin;
           // Remove trailing /api if it exists, we'll add it explicitly
           baseUrl = baseUrl.replace(/\/api\/?$/, '');
           const sseUrl = baseUrl + '/api/message/' + user.id;
