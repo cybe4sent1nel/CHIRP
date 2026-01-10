@@ -11,7 +11,7 @@
     "dev:server": "npm run dev --prefix server",
     "build:client": "npm run build --prefix client",
     "build:server": "npm install --prefix server",
-    "build:all": "npm install --prefix server && npm install --legacy-peer-deps --prefix client && npm run build --prefix client",
+    "build:all": "npm install --prefix server && NPM_CONFIG_PRODUCTION=false npm install --legacy-peer-deps --prefix client && npm run build --prefix client",
     "build": "npm run build:all",
     "install:all": "npm install && npm install --legacy-peer-deps --prefix client && npm install --prefix server",
     "vercel-build": "npm run build:all",
