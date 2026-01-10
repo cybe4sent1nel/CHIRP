@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Lottie from 'lottie-react';
+const Lottie = React.lazy(() => import('lottie-react'));
 import { Mail, Lock, User, Chrome, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { useCustomAuth } from '../context/AuthContext';
-import { SignIn } from '@clerk/clerk-react';
+const SignIn = React.lazy(() => import('@clerk/clerk-react').then(mod => ({ default: mod.SignIn })));
 
 const CustomAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -308,16 +308,18 @@ const CustomAuth = () => {
           >
             ← Back
           </button>
-          <SignIn 
-            afterSignInUrl="/"
-            appearance={{
-              baseTheme: undefined,
-              elements: {
-                rootBox: "mx-auto",
-                card: "bg-white/95 backdrop-blur-xl shadow-2xl border border-white/20"
-              }
-            }}
-          />
+          <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
+            <SignIn 
+              afterSignInUrl="/"
+              appearance={{
+                baseTheme: undefined,
+                elements: {
+                  rootBox: "mx-auto",
+                  card: "bg-white/95 backdrop-blur-xl shadow-2xl border border-white/20"
+                }
+              }}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -328,12 +330,16 @@ const CustomAuth = () => {
       {/* Background Animations */}
       {leftAnimation && (
         <div className="absolute left-0 top-0 w-1/2 h-full opacity-40 pointer-events-none">
-          <Lottie animationData={leftAnimation} loop={true} />
+          <Suspense fallback={<div className="w-full h-40 bg-gray-200 animate-pulse"/>}>
+            <Lottie animationData={leftAnimation} loop={true} />
+          </Suspense>
         </div>
       )}
       {rightAnimation && (
         <div className="absolute right-0 top-0 w-1/2 h-full opacity-40 pointer-events-none">
-          <Lottie animationData={rightAnimation} loop={true} />
+          <Suspense fallback={<div className="w-full h-40 bg-gray-200 animate-pulse"/>}>
+            <Lottie animationData={rightAnimation} loop={true} />
+          </Suspense>
         </div>
       )}
 
@@ -462,14 +468,16 @@ const CustomAuth = () => {
                 title={showPassword ? "Hide password" : "Show password"}
               >
                 {catAnimation && (
-                  <Lottie
-                    lottieRef={catLottieRef}
-                    animationData={catAnimation}
-                    loop={false}
-                    autoplay={false}
-                    style={{ width: 45, height: 45 }}
-                    initialSegment={showPassword ? [60, 120] : [0, 60]}
-                  />
+                  <Suspense fallback={<div style={{ width: 45, height: 45 }} /> }>
+                    <Lottie
+                      lottieRef={catLottieRef}
+                      animationData={catAnimation}
+                      loop={false}
+                      autoplay={false}
+                      style={{ width: 45, height: 45 }}
+                      initialSegment={showPassword ? [60, 120] : [0, 60]}
+                    />
+                  </Suspense>
                 )}
               </button>
             </div>

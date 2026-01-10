@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import { Star, X } from "lucide-react";
-import { SignIn, SignUp } from "@clerk/clerk-react";
+const SignIn = React.lazy(() => import('@clerk/clerk-react').then(mod => ({ default: mod.SignIn })));
+const SignUp = React.lazy(() => import('@clerk/clerk-react').then(mod => ({ default: mod.SignUp })));
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
@@ -521,16 +522,18 @@ const Login = () => {
           >
             ← Back
           </button>
-          <SignIn 
-            afterSignInUrl="/"
-            appearance={{
-              baseTheme: undefined,
-              elements: {
-                rootBox: "mx-auto",
-                card: "bg-gray-900 shadow-xl"
-              }
-            }}
-          />
+          <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
+            <SignIn 
+              afterSignInUrl="/"
+              appearance={{
+                baseTheme: undefined,
+                elements: {
+                  rootBox: "mx-auto",
+                  card: "bg-gray-900 shadow-xl"
+                }
+              }}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -547,16 +550,18 @@ const Login = () => {
           >
             ← Back
           </button>
-          <SignUp 
-            afterSignUpUrl="/"
-            appearance={{
-              baseTheme: undefined,
-              elements: {
-                rootBox: "mx-auto",
-                card: "bg-gray-900 shadow-xl"
-              }
-            }}
-          />
+          <Suspense fallback={<div className="p-4">Loading sign up...</div>}>
+            <SignUp 
+              afterSignUpUrl="/"
+              appearance={{
+                baseTheme: undefined,
+                elements: {
+                  rootBox: "mx-auto",
+                  card: "bg-gray-900 shadow-xl"
+                }
+              }}
+            />
+          </Suspense>
         </div>
       </div>
     );
