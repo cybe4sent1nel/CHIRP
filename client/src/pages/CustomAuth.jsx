@@ -8,42 +8,46 @@ import { useCustomAuth } from '../context/AuthContext';
 const SignIn = React.lazy(() => import('@clerk/clerk-react').then(mod => ({ default: mod.SignIn })));
 
 const CustomAuth = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [leftAnimation, setLeftAnimation] = useState(null);
-  const [rightAnimation, setRightAnimation] = useState(null);
-  const [catAnimation, setCatAnimation] = useState(null);
-  const [showClerkSignIn, setShowClerkSignIn] = useState(false);
-  // Open Clerk modal when URL param mode=clerk is present and close it otherwise
-  useEffect(() => {
-    const mode = searchParams.get('mode');
-    console.log('CustomAuth: URL mode param =', mode);
-    if (mode === 'clerk') {
-      setShowClerkSignIn(true);
-    } else {
-      if (showClerkSignIn) {
-        console.log('CustomAuth: mode is not clerk, closing Clerk modal');
-        setShowClerkSignIn(false);
-      }
-    }
-  }, [searchParams, showClerkSignIn]);
+   const navigate = useNavigate();
+   const [searchParams] = useSearchParams();
+   const { customLogin, customSignup, isAuthenticated } = useCustomAuth();
+   
+   const [isLogin, setIsLogin] = useState(true);
+   const [showPassword, setShowPassword] = useState(false);
+   const [loading, setLoading] = useState(false);
+   const [leftAnimation, setLeftAnimation] = useState(null);
+   const [rightAnimation, setRightAnimation] = useState(null);
+   const [catAnimation, setCatAnimation] = useState(null);
+   const [showClerkSignIn, setShowClerkSignIn] = useState(false);
+   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+   const [verificationEmail, setVerificationEmail] = useState('');
+   const [acceptedTerms, setAcceptedTerms] = useState(false);
+   const catLottieRef = useRef(null);
+   
+   // Open Clerk modal when URL param mode=clerk is present
+   useEffect(() => {
+     const mode = searchParams.get('mode');
+     console.log('CustomAuth: URL mode param =', mode);
+     if (mode === 'clerk') {
+       setShowClerkSignIn(true);
+     }
+   }, [searchParams]);
 
-  useEffect(() => {
-    console.log('CustomAuth: showClerkSignIn =', showClerkSignIn);
-  }, [showClerkSignIn]);
+   useEffect(() => {
+     console.log('CustomAuth: showClerkSignIn =', showClerkSignIn);
+   }, [showClerkSignIn]);
 
-  // Log full URL on mount to help debug unexpected redirects
-  useEffect(() => {
-    console.log('CustomAuth mount URL:', window.location.href);
-  }, []);
+   // Log full URL on mount to help debug unexpected redirects
+   useEffect(() => {
+     console.log('CustomAuth mount URL:', window.location.href);
+   }, []);
 
-  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState('');
-  const catLottieRef = useRef(null);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { customLogin, customSignup, isAuthenticated } = useCustomAuth();
+  // Pull agreed flag from URL (set by Login page) to ensure terms were accepted
+  useEffect(() => {
+    const agreed = searchParams.get('agreed') === '1';
+    console.log('CustomAuth: agreed param =', agreed);
+    setAcceptedTerms(agreed);
+  }, [searchParams]);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -121,16 +125,31 @@ const CustomAuth = () => {
   }, []);
 
   // Handle OAuth callback
-  useEffect(() => {
-    const token = searchParams.get('token');
-    const provider = searchParams.get('provider');
-    
-    if (token && provider) {
-      localStorage.setItem('chirp_auth_token', token);
-      toast.success(`Welcome! Logged in with ${provider}`);
-      navigate('/');
-    }
-  }, [searchParams, navigate]);
+   useEffect(() => {
+     const token = searchParams.get('token');
+     const provider = searchParams.get('provider');
+     const error = searchParams.get('error');
+     
+     // Handle errors first
+     if (error && provider) {
+       console.error(`${provider} auth error:`, error);
+       toast.error(`${provider} authentication failed. Please try again.`);
+       return;
+     }
+     
+     // Handle successful OAuth callback
+     if (token && provider) {
+       // Store token with correct key that AuthContext expects
+       localStorage.setItem('customAuthToken', token);
+       // Dispatch custom event to notify AuthContext of update
+       window.dispatchEvent(new Event('customAuthUpdate'));
+       toast.success(`Welcome! Logged in with ${provider}`);
+       // Wait a moment for AuthContext to update, then redirect
+       setTimeout(() => {
+         window.location.replace('/');
+       }, 500);
+     }
+   }, [searchParams, navigate]);
 
   const checkPasswordStrength = (password) => {
     const requirements = {
@@ -203,7 +222,22 @@ const CustomAuth = () => {
     setLoading(true);
 
     try {
+      // Ensure the user accepted terms on the previous page
+      if (!acceptedTerms) {
+        console.warn('CustomAuth: submit blocked - terms not accepted');
+        toast.error('Please accept the Terms of Service and Privacy Policy from the previous page before continuing.');
+        setLoading(false);
+        return;
+      }
+
       if (isLogin) {
+        // Client-side validation
+        if (!formData.identifier || !formData.password) {
+          toast.error('Please enter both email/username and password.');
+          setLoading(false);
+          return;
+        }
+
         // Login using AuthContext
         const result = await customLogin(formData.identifier, formData.password);
         
@@ -217,10 +251,25 @@ const CustomAuth = () => {
         } else {
           // Show error message with appropriate icon
           const isPasswordError = result.field === 'password';
-          toast.error(result.message || 'Login failed', {
-            duration: 5000,
-            icon: isPasswordError ? '🔒' : '⚠️'
-          });
+          const isTimeout = result.message?.includes('timeout') || result.message?.includes('connection');
+          
+          if (isTimeout) {
+            // Timeout error - show with longer duration
+            toast.error(result.message || 'Connection timeout. Please check your internet and try again.', {
+              duration: 8000,
+              icon: '⏱️'
+            });
+          } else if (isPasswordError) {
+            toast.error(result.message || 'Login failed', {
+              duration: 5000,
+              icon: '🔒'
+            });
+          } else {
+            toast.error(result.message || 'Login failed', {
+              duration: 5000,
+              icon: '⚠️'
+            });
+          }
           
           // If user doesn't exist, suggest signup
           if (result.shouldSignup) {
@@ -236,6 +285,13 @@ const CustomAuth = () => {
         }
       } else {
         // Signup using AuthContext
+        // Client-side validation
+        if (!formData.full_name || !formData.email || !formData.password) {
+          toast.error('Please fill in your full name, email and password.');
+          setLoading(false);
+          return;
+        }
+
         const result = await customSignup(
           formData.email,
           formData.password,
@@ -245,10 +301,15 @@ const CustomAuth = () => {
 
         if (result.success) {
           console.log('CustomAuth: signup successful, verification email sent to', formData.email);
-          // Clear any old auth data
-          localStorage.removeItem('customAuthToken');
-          localStorage.removeItem('customUser');
-          
+
+          // Store auth data even for unverified users to allow access to home page
+          if (result.token && result.user) {
+            localStorage.setItem('customAuthToken', result.token);
+            localStorage.setItem('customUser', JSON.stringify(result.user));
+            // Dispatch custom event to notify AuthContext of update
+            window.dispatchEvent(new Event('customAuthUpdate'));
+          }
+
           setVerificationEmail(formData.email);
           setShowVerificationMessage(true);
           toast.success('Account created! Please check your email to verify.', {
@@ -297,6 +358,7 @@ const CustomAuth = () => {
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Authentication failed';
+      console.error('CustomAuth submit error:', error);
       toast.error(message);
     } finally {
       setLoading(false);
@@ -323,7 +385,8 @@ const CustomAuth = () => {
         </button>
         <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
           <SignIn 
-            afterSignInUrl="/"
+            forceRedirectUrl="/"
+            fallbackRedirectUrl="/"
             appearance={{
               baseTheme: undefined,
               elements: {
@@ -376,17 +439,28 @@ const CustomAuth = () => {
                   We've sent a verification link to <strong>{verificationEmail}</strong>
                 </p>
                 <p className="text-white/80 text-xs mb-3">
-                  Please click the link in the email to verify your account and unlock all features.
-                </p>
-                <button
-                  onClick={() => {
-                    setShowVerificationMessage(false);
-                    setIsLogin(true);
-                  }}
-                  className="text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
-                >
-                  Go to Login
-                </button>
+                   Please click the link in the email to verify your account and unlock all features.
+                 </p>
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => {
+                       setShowVerificationMessage(false);
+                       navigate('/');
+                     }}
+                     className="flex-1 text-sm bg-white hover:bg-white/90 text-teal-600 font-semibold px-4 py-2 rounded-lg transition-colors"
+                   >
+                     Go to Home
+                   </button>
+                   <button
+                     onClick={() => {
+                       setShowVerificationMessage(false);
+                       setIsLogin(true);
+                     }}
+                     className="text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+                   >
+                     Login
+                   </button>
+                 </div>
               </div>
             </div>
           </div>
@@ -619,9 +693,15 @@ const CustomAuth = () => {
             )}
 
             {/* Submit Button */}
+            {!acceptedTerms && (
+              <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800">
+                You must accept the <a href="/privacy-policy.html" target="_blank" className="underline">Privacy Policy</a> and <a href="/terms-of-service.html" target="_blank" className="underline">Terms of Service</a> on the previous page before continuing. <button onClick={() => navigate('/welcome')} className="ml-2 font-semibold text-purple-600">Go back to accept</button>
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !acceptedTerms}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}

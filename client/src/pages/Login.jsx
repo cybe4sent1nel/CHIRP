@@ -610,7 +610,7 @@ const Login = () => {
              <div className="flex flex-col sm:flex-row gap-4">
                <AnimatedButton
                  label="Sign up"
-                 onClick={() => { console.log('Login.jsx: Sign up clicked - navigating to /auth?mode=signup'); navigate('/auth?mode=signup'); }}
+                 onClick={() => { console.log('Login.jsx: Sign up clicked - navigating to /auth?mode=signup&agreed=1'); navigate('/auth?mode=signup&agreed=1'); }}
                  disabled={!agreed}
                  color="#fec195"
                  textColor="#181818"
@@ -619,7 +619,7 @@ const Login = () => {
 
                <AnimatedButton
                  label="Sign in"
-                 onClick={() => { console.log('Login.jsx: Sign in clicked - navigating to /auth?mode=login'); navigate('/auth?mode=login'); }}
+                 onClick={() => { console.log('Login.jsx: Sign in clicked - navigating to /auth?mode=login&agreed=1'); navigate('/auth?mode=login&agreed=1'); }}
                  disabled={!agreed}
                  color="#4ade80"
                  textColor="#ffffff"

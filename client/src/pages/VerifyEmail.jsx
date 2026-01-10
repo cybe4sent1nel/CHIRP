@@ -53,13 +53,13 @@ const VerifyEmail = () => {
           if (data.token && data.user) {
             localStorage.setItem('customAuthToken', data.token);
             localStorage.setItem('customUser', JSON.stringify(data.user));
+            // Dispatch custom event to notify AuthContext of update
+            window.dispatchEvent(new Event('customAuthUpdate'));
           }
           
           // Redirect to home after 2 seconds
           setTimeout(() => {
-            navigate('/');
-            // Reload to update auth state
-            window.location.reload();
+            window.location.replace('/');
           }, 2000);
         } else {
           setVerified(false);

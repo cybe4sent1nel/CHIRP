@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useClerk } from '@clerk/clerk-react';
+import { useCustomAuth } from '../context/AuthContext';
 import './AnimatedLogoutButton.css';
 
 const AnimatedLogoutButton = () => {
   const { signOut } = useClerk();
+  const { customLogout } = useCustomAuth();
   const [buttonState, setButtonState] = useState('default');
 
   // Animation states mapped to CSS variables
@@ -63,8 +65,16 @@ const AnimatedLogoutButton = () => {
               updateButtonState('falling3');
               
               setTimeout(() => {
-                signOut();
-                window.location.href = '/welcome';
+                try {
+                  signOut?.();
+                } catch (e) {
+                  console.log('Clerk signOut skipped (custom auth)');
+                }
+                if (customLogout) {
+                  customLogout();
+                } else {
+                  window.location.href = '/welcome';
+                }
               }, 1000);
             }, logoutButtonStates['falling2']['--walking-duration']);
           }, logoutButtonStates['falling1']['--walking-duration']);

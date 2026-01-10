@@ -1,8 +1,21 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_BASEURL
+    baseURL: import.meta.env.VITE_BASEURL || 'http://localhost:4000',
+    timeout: 30000 // 30 second timeout for all requests
 })
+
+// Add request interceptor to attach custom auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('customAuthToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Add response interceptor to handle errors globally
 api.interceptors.response.use(

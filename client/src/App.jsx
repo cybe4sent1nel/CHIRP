@@ -97,25 +97,37 @@ const App = () => {
   const isUserAuthenticated = user || customAuthActive;
 
   const dispatch = useDispatch();
+  const { token: customToken } = useCustomAuth();
+
   useEffect(()=>{
     const printToken = async () => {
-      const token = await getToken()
-      console.log(token)
+      if(user) {
+        const token = await getToken()
+        console.log('Clerk token:', token)
+      } else if(customAuthActive) {
+        console.log('Custom auth active, token available')
+      }
     }
     printToken()
-  },[])
+  },[user, customAuthActive, getToken])
 
   useEffect(()=>{
     const fetchData = async () => {
-      if(user){
-      const token = await getToken()
-      dispatch(fetchUser(token))
-      dispatch(fetchConnections
-      (token))
-    }
+      if(user || customAuthActive){
+        if(user) {
+          // Clerk user - get token and pass it
+          const token = await getToken()
+          dispatch(fetchUser(token))
+          dispatch(fetchConnections(token))
+        } else if(customAuthActive && customToken) {
+          // Custom auth user - pass custom token
+          dispatch(fetchUser(customToken))
+          dispatch(fetchConnections(customToken))
+        }
+      }
     }
     fetchData()
-  }, [user, getToken, dispatch ])
+  }, [user, customAuthActive, customToken, getToken, dispatch ])
 
   useEffect(()=>{
     pathnameRef.current = pathname

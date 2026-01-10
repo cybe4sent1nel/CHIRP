@@ -43,6 +43,28 @@ export const AuthProvider = ({ children }) => {
     };
 
     loadAuth();
+    
+    // Listen for storage changes (e.g., from OAuth callback or other tabs)
+    const handleStorageChange = (e) => {
+      if (e.key === 'customAuthToken' || e.key === 'customUser') {
+        console.log('Storage change detected, reloading auth state');
+        loadAuth();
+      }
+    };
+    
+    // Also listen for custom auth events in the same tab
+    const handleAuthUpdate = () => {
+      console.log('Custom auth update event received');
+      loadAuth();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('customAuthUpdate', handleAuthUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('customAuthUpdate', handleAuthUpdate);
+    };
   }, []);
 
   // Login with custom auth
@@ -50,11 +72,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const endpoint = '/api/auth/login';
       console.log('customLogin: POST', endpoint, { identifier });
+      console.log('Using API URL:', import.meta.env.VITE_BASEURL || 'http://localhost:4000');
+      
       const response = await api.post(endpoint, {
         identifier,
         password
       });
 
+      console.log('customLogin: Success response:', response.data);
+      
       if (response.data.success) {
         const { token, user } = response.data;
         localStorage.setItem('customAuthToken', token);
@@ -66,8 +92,25 @@ export const AuthProvider = ({ children }) => {
       
       return { success: false, message: response.data.message };
     } catch (error) {
-      console.error('Login error:', error.response ?? error);
+      console.error('Login error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        baseURL: error.config?.baseURL,
+        url: error.config?.url
+      });
       const errorData = error.response?.data;
+      
+      // Handle timeout error specifically
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        return {
+          success: false,
+          message: 'Request timeout. Please check your internet connection and try again.',
+          shouldSignup: false
+        };
+      }
+      
       return {
         success: false,
         message: errorData?.message || 'Login failed. Please try again.',
@@ -81,6 +124,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const endpoint = '/api/auth/signup';
       console.log('customSignup: POST', endpoint, { email, full_name, username });
+      console.log('Using API URL:', import.meta.env.VITE_BASEURL || 'http://localhost:4000');
+      
       const response = await api.post(endpoint, {
         email,
         password,
@@ -88,20 +133,44 @@ export const AuthProvider = ({ children }) => {
         username
       });
 
+      console.log('customSignup: Success response:', response.data);
+
       if (response.data.success) {
-        const { message } = response.data;
-        // DON'T store token/user until email is verified
-        // Just return success message
+        const { message, token, user } = response.data;
+        // Store token/user even for unverified (from signup response)
+        if (token && user) {
+          localStorage.setItem('customAuthToken', token);
+          localStorage.setItem('customUser', JSON.stringify(user));
+        }
         return { 
           success: true, 
-          message: message || 'Account created! Please check your email to verify.' 
+          message: message || 'Account created! Please check your email to verify.',
+          token: response.data.token,
+          user: response.data.user
         };
       }
       
       return { success: false, message: response.data.message };
     } catch (error) {
-      console.error('Signup error:', error.response ?? error);
+      console.error('Signup error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        baseURL: error.config?.baseURL,
+        url: error.config?.url
+      });
       const errorData = error.response?.data;
+      
+      // Handle timeout error specifically
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        return {
+          success: false,
+          message: 'Request timeout. Please check your internet connection and try again.',
+          field: null
+        };
+      }
+      
       return {
         success: false,
         message: errorData?.message || 'Signup failed. Please try again.',

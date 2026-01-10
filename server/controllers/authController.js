@@ -46,10 +46,12 @@ const sendEmailWithFallback = async (emailData) => {
 // Signup with Email/Password
 export const signup = async (req, res) => {
   try {
+    console.log('[AUTH] Signup request body:', req.body);
     const { email, password, full_name, username } = req.body;
 
     // Validation
     if (!email || !password || !full_name) {
+      console.warn('[AUTH] Signup validation failed: missing fields');
       return res.status(400).json({ 
         success: false, 
         message: 'Please provide all required fields' 
@@ -166,9 +168,11 @@ export const signup = async (req, res) => {
 // Login with Email/Username and Password
 export const login = async (req, res) => {
   try {
+    console.log('[AUTH] Login request body:', req.body);
     const { identifier, password } = req.body; // identifier can be email or username
 
     if (!identifier || !password) {
+      console.warn('[AUTH] Login validation failed: missing fields');
       return res.status(400).json({ 
         success: false, 
         message: 'Please provide email/username and password' 
@@ -176,12 +180,14 @@ export const login = async (req, res) => {
     }
 
     // Find user by email or username
+    console.log('[AUTH] Finding user by identifier:', identifier);
     const user = await User.findOne({
       $or: [{ email: identifier }, { username: identifier }],
       authProvider: 'local'
     });
 
     if (!user) {
+      console.log('[AUTH] User not found');
       return res.status(401).json({ 
         success: false, 
         message: 'No account found with this email/username. Please sign up to create a new account.',
@@ -189,9 +195,29 @@ export const login = async (req, res) => {
       });
     }
 
+    console.log('[AUTH] User found:', user.email);
+
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!user.password) {
+      console.warn('[AUTH] Login attempted for local auth but no local password exists');
+      return res.status(401).json({
+        success: false,
+        message: 'This account does not have a local password — please sign in with your social provider or use the correct login method.'
+      });
+    }
+
+    let isPasswordValid = false;
+    try {
+      console.log('[AUTH] Comparing passwords...');
+      isPasswordValid = await bcrypt.compare(password, user.password);
+      console.log('[AUTH] Password valid:', isPasswordValid);
+    } catch (err) {
+      console.error('[AUTH] Error comparing password:', err);
+      return res.status(500).json({ success: false, message: 'Server error while validating credentials' });
+    }
+
     if (!isPasswordValid) {
+      console.log('[AUTH] Password invalid');
       return res.status(401).json({ 
         success: false, 
         message: 'Incorrect password. Please try again or use "Forgot Password" to reset it.',
@@ -200,6 +226,7 @@ export const login = async (req, res) => {
     }
 
     // Generate JWT
+    console.log('[AUTH] Generating token...');
     const token = generateToken(user._id);
 
     // Get login information (location & device)
@@ -209,27 +236,31 @@ export const login = async (req, res) => {
     const locationChanged = user.lastLoginLocation && user.lastLoginLocation !== loginInfo.location;
     const deviceChanged = user.lastLoginDevice && user.lastLoginDevice !== loginInfo.device;
 
-    // Send login alert email only if location or device changed
+    // Send login alert email only if location or device changed (non-blocking)
     if (locationChanged || deviceChanged) {
-      try {
-        await sendEmailWithFallback({
-          to: user.email,
-          subject: '🔔 New Login Detected',
-          body: loginAlertEmail(user.full_name, loginInfo.location, loginInfo.device)
-        });
-        console.log('Login alert sent - Location changed:', locationChanged, '| Device changed:', deviceChanged);
-      } catch (emailError) {
+      console.log('[AUTH] Sending login alert email...');
+      sendEmailWithFallback({
+        to: user.email,
+        subject: '🔔 New Login Detected',
+        body: loginAlertEmail(user.full_name, loginInfo.location, loginInfo.device)
+      }).catch(emailError => {
         console.error('Failed to send login alert:', emailError);
-      }
+      });
+      // Don't await, let it send in background
     }
 
     // Update last login information
+    console.log('[AUTH] Updating last login info...');
     user.lastLoginLocation = loginInfo.location;
     user.lastLoginDevice = loginInfo.device;
     user.lastLoginIP = loginInfo.ip;
     user.lastLoginAt = new Date();
+    
+    console.log('[AUTH] Saving user...');
     await user.save();
+    console.log('[AUTH] User saved successfully');
 
+    console.log('[AUTH] Sending login response...');
     res.json({
       success: true,
       message: 'Login successful',
@@ -243,8 +274,10 @@ export const login = async (req, res) => {
         emailVerified: user.emailVerified
       }
     });
+    console.log('[AUTH] Login response sent successfully');
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
       message: 'Server error during login' 

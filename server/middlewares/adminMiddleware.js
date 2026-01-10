@@ -6,8 +6,15 @@ export const adminProtect = async (req, res, next) => {
     // For now, we'll check session or authorization header
     const adminId = req.headers['x-admin-id'];
     const adminEmail = req.headers['x-admin-email'];
+    const authHeader = req.headers['authorization'];
 
-    if (!adminId && !adminEmail) {
+    // Support Authorization: Bearer <adminId> for convenience during testing
+    let bearerAdminId;
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      bearerAdminId = authHeader.split(' ')[1];
+    }
+
+    if (!adminId && !adminEmail && !bearerAdminId) {
       return res.status(401).json({
         success: false,
         message: 'Access denied. Admin authentication required.'
@@ -19,6 +26,8 @@ export const adminProtect = async (req, res, next) => {
       admin = await Admin.findById(adminId);
     } else if (adminEmail) {
       admin = await Admin.findOne({ email: adminEmail.toLowerCase(), is_active: true });
+    } else if (bearerAdminId) {
+      admin = await Admin.findById(bearerAdminId);
     }
 
     if (!admin) {

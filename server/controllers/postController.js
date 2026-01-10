@@ -4,11 +4,12 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Hashtag from "../models/Hashtag.js";
 import { extractHashtags, extractMentions } from "../utils/textUtils.js";
+import { getUserId } from "../middlewares/auth.js";
 
 // Add Post
 export const addPost = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { content, post_type } = req.body;
     const images = req.files || [];
 
@@ -70,11 +71,15 @@ export const addPost = async (req, res) => {
 // Get Posts
 export const getFeedPost = async (req, res) => {
     try {
-        const {userId} = req.auth()
+        const userId = getUserId(req)
         const user = await User.findById(userId)
 
+        if (!user) {
+          return res.status(404).json({success: false, message: "User not found"})
+        }
+
         // User connections and followings
-        const userIds = [userId, ...user.connections, ...user.following]
+        const userIds = [userId, ...(user.connections || []), ...(user.following || [])]
         const posts = await Post.find({user: {$in: userIds}})
             .populate('user')
             .populate('likes_count', '_id full_name username profile_picture')

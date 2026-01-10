@@ -133,6 +133,24 @@ app.use('/api/conversations', conversationRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 
+// Global error handler to capture unexpected errors and return 500
+app.use((err, req, res, next) => {
+  try {
+    console.error('[ERROR HANDLER] Unhandled error:', err.stack || err);
+  } catch (e) {
+    console.error('[ERROR HANDLER] Error while logging error:', e);
+  }
+  res.status(500).json({ success: false, message: 'Internal Server Error' });
+});
+
+// Log unhandled promise rejections and uncaught exceptions
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+});
+
 const PORT = process.env.PORT || 4000;
 
 import serverless from 'serverless-http';

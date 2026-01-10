@@ -33,18 +33,18 @@ authRouter.get('/google',
 authRouter.get('/google/callback',
   passport.authenticate('google', { 
     session: false, 
-    failureRedirect: `${FRONTEND_URL}/login?error=auth_failed` 
+    failureRedirect: `${FRONTEND_URL}/auth?error=auth_failed&provider=google` 
   }),
   (req, res) => {
     try {
       // Generate JWT
       const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '30d' });
       
-      // Redirect to frontend with token
-      res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}&provider=google`);
+      // Redirect to frontend auth page with token and provider info
+      res.redirect(`${FRONTEND_URL}/auth?token=${token}&provider=google`);
     } catch (error) {
       console.error('Google callback error:', error);
-      res.redirect(`${FRONTEND_URL}/login?error=auth_failed`);
+      res.redirect(`${FRONTEND_URL}/auth?error=auth_failed&provider=google`);
     }
   }
 );

@@ -3,10 +3,12 @@ import imageKit from "../configs/imageKit.js";
 import User from "../models/User.js";
 import Story from "../models/Story.js";
 import { inngest } from "../inngest/index.js";
+import { getUserId } from "../middlewares/auth.js";
+
 // Add user story
 export const addUserStory = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { content, media_type, background_color } = req.body;
     const media = req.file;
     let media_url = "";
@@ -54,11 +56,15 @@ export const addUserStory = async (req, res) => {
 // Get User Story
 export const getStories = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const user = await User.findById(userId);
 
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
     // User connections and followings
-    const userIds = [userId, ...user.connections, ...user.following];
+    const userIds = [userId, ...(user.connections || []), ...(user.following || [])];
 
     // Delete expired stories (fallback cleanup)
     await Story.deleteMany({

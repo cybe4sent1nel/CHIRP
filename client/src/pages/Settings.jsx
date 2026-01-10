@@ -250,6 +250,25 @@ const Settings = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Profile Settings</h2>
 
+                  {/* Avatar Section */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Profile Picture</h3>
+                    <div className="flex items-center gap-6 bg-gray-50 rounded-lg p-4">
+                      <div className="flex flex-col items-center">
+                        <img
+                          src={user?.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email || user?.username || 'default')}&scale=80`}
+                          alt="Profile"
+                          className="w-24 h-24 rounded-full object-cover border-4 border-indigo-500 mb-2"
+                        />
+                        <p className="text-sm text-gray-600">Current Avatar</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600 mb-3">Your avatar is generated from your email address (DiceBear).</p>
+                        <p className="text-sm text-gray-500">To upload a custom profile picture, go to your Profile page and edit your profile information.</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mb-8">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
                     <div className="space-y-4 bg-gray-50 rounded-lg p-4">

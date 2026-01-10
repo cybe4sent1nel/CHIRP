@@ -83,6 +83,7 @@ const sendOTPEmail = async (email, otp, name) => {
 // Check if user is admin and send OTP
 export const initiateAdminLogin = async (req, res) => {
   try {
+    console.log('[ADMIN] initiateAdminLogin body:', req.body);
     const { email } = req.body;
 
     if (!email) {
@@ -135,6 +136,7 @@ export const initiateAdminLogin = async (req, res) => {
 // Verify OTP and login
 export const verifyAdminOTP = async (req, res) => {
   try {
+    console.log('[ADMIN] verifyAdminOTP body:', req.body);
     const { email, otp } = req.body;
 
     if (!email || !otp) {

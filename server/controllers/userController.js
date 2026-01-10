@@ -6,11 +6,15 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import fs from "fs";
 import bcrypt from "bcryptjs";
+import { getUserId } from "../middlewares/auth.js";
 
 // Get User data using userId
 export const getUserData = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
     const user = await User.findById(userId);
     if (!user) {
       return res.json({ success: false, message: "User not found" });
@@ -273,7 +277,7 @@ export const sendConnectionRequest = async (req, res) => {
 
 export const getUserConnections = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const user = await User.findById(userId).populate(
       "connections followers following"
     );
