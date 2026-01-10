@@ -64,11 +64,16 @@ export const authProvider = {
         };
       } catch (error) {
         console.error("❌ [LOGIN] OTP initiate error:", error);
+        const errorMessage = error.response?.data?.message || error.message || "Login failed";
+        console.log("❌ [LOGIN] Error details:", {
+          status: error.response?.status,
+          message: errorMessage
+        });
         return {
           success: false,
           error: {
             name: "LoginError",
-            message: error.response?.data?.message || "Login failed",
+            message: errorMessage,
           },
         };
       }
@@ -83,13 +88,19 @@ export const authProvider = {
   },
 
   check: async () => {
-    console.log("🔍 [AUTH CHECK] Starting authentication check...");
+    console.log("🔍 [AUTH CHECK] ===== STARTING AUTHENTICATION CHECK =====");
+    console.log("🔍 [AUTH CHECK] Current path:", window.location.pathname);
+    console.log("🔍 [AUTH CHECK] Current timestamp:", new Date().toISOString());
     
     const token = localStorage.getItem("admin_token");
     const adminData = localStorage.getItem("admin_data");
+    const adminEmail = localStorage.getItem("admin_email");
     
-    console.log("📋 [AUTH CHECK] Admin token exists:", !!token);
-    console.log("📋 [AUTH CHECK] Admin data exists:", !!adminData);
+    console.log("📋 [AUTH CHECK] Local storage state:", {
+      hasAdminToken: !!token,
+      adminEmail,
+      hasAdminData: !!adminData
+    });
     
     // Check if user is logged in as a regular user (Clerk)
     // Look for Clerk session data in localStorage
@@ -103,19 +114,26 @@ export const authProvider = {
     
     // Has token - verify admin role
     if (token && adminData) {
-      console.log("✅ [AUTH CHECK] Admin credentials found, verifying role...");
+      console.log("✅ [AUTH CHECK] Admin credentials found in localStorage, verifying role...");
       try {
         const admin = JSON.parse(adminData);
-        console.log("👤 [AUTH CHECK] Admin role:", admin.role);
+        console.log("👤 [AUTH CHECK] Admin details:", {
+          id: admin._id,
+          email: admin.email,
+          role: admin.role,
+          name: admin.name
+        });
         
         // Check if user has admin role
         if (admin.role && ['super_admin', 'admin', 'moderator'].includes(admin.role)) {
           console.log("✅ [AUTH CHECK] Admin role verified - AUTHENTICATED");
+          console.log("🔐 [AUTH CHECK] ===== AUTH CHECK PASSED - USER IS ADMIN =====");
           return { authenticated: true };
         }
         
         // Has token but not an admin - show 403
         console.log("⛔ [AUTH CHECK] User has token but not admin role - REDIRECTING TO 403");
+        console.log("⛔ [AUTH CHECK] User role was:", admin.role);
         return {
           authenticated: false,
           redirectTo: "/error/403",
@@ -125,7 +143,8 @@ export const authProvider = {
           },
         };
       } catch (error) {
-        console.error("❌ [AUTH CHECK] Failed to parse admin data:", error);
+        console.error("❌ [AUTH CHECK] Failed to parse admin data:", error.message);
+        console.error("❌ [AUTH CHECK] Invalid admin data:", adminData);
         // Invalid token data - redirect to login
         localStorage.removeItem("admin_token");
         localStorage.removeItem("admin_email");
@@ -145,6 +164,7 @@ export const authProvider = {
       // If user is logged in with Clerk but no admin token, show 403
       if (hasClerkSession) {
         console.log("⛔ [AUTH CHECK] Regular user detected (Clerk session) - REDIRECTING TO 403");
+        console.log("⛔ [AUTH CHECK] Clerk keys detected:", clerkKeys);
         return {
           authenticated: false,
           redirectTo: "/error/403",
@@ -156,14 +176,15 @@ export const authProvider = {
       }
       
       // Not logged in at all - redirect to admin login
-      console.log("🔓 [AUTH CHECK] No user logged in - REDIRECTING TO ADMIN LOGIN");
+      console.log("🔓 [AUTH CHECK] No user logged in at all - REDIRECTING TO ADMIN LOGIN");
+      console.log("🔓 [AUTH CHECK] ===== AUTH CHECK FAILED - REDIRECT TO LOGIN =====");
       return {
         authenticated: false,
         redirectTo: "/admin/login",
       };
     }
     
-    console.log("⚠️ [AUTH CHECK] Fallback - REDIRECTING TO ADMIN LOGIN");
+    console.log("⚠️ [AUTH CHECK] Fallback case reached - REDIRECTING TO ADMIN LOGIN");
     return {
       authenticated: false,
       redirectTo: "/admin/login",

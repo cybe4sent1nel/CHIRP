@@ -15,6 +15,14 @@ const generateOTP = () => {
 
 // Send OTP email
 const sendOTPEmail = async (email, otp, name) => {
+  console.log('[ADMIN] sendOTPEmail - Starting email send process');
+  console.log('[ADMIN] sendOTPEmail - Email config:', {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    user: process.env.SMTP_USER ? `${process.env.SMTP_USER.split('@')[0]}@***` : 'NOT SET',
+    senderEmail: process.env.SENDER_EMAIL
+  });
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
@@ -24,6 +32,8 @@ const sendOTPEmail = async (email, otp, name) => {
       pass: process.env.SMTP_PASS
     }
   });
+
+  console.log('[ADMIN] sendOTPEmail - Transporter created');
 
   const mailOptions = {
     from: process.env.SENDER_EMAIL,
@@ -77,35 +87,59 @@ const sendOTPEmail = async (email, otp, name) => {
     `
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    console.log('[ADMIN] sendOTPEmail - Attempting to send email to:', email);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[ADMIN] sendOTPEmail - Email sent successfully');
+    console.log('[ADMIN] sendOTPEmail - Response ID:', info.response);
+    return info;
+  } catch (error) {
+    console.error('[ADMIN] sendOTPEmail - Error details:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode
+    });
+    throw error;
+  }
 };
 
 // Check if user is admin and send OTP
 export const initiateAdminLogin = async (req, res) => {
   try {
+    console.log('[ADMIN] ===== INITIATE LOGIN START =====');
     console.log('[ADMIN] initiateAdminLogin body:', req.body);
     const { email } = req.body;
 
     if (!email) {
+      console.log('[ADMIN] ❌ Email not provided');
       return res.status(400).json({ 
         success: false, 
         message: 'Email is required' 
       });
     }
 
+    console.log('[ADMIN] 🔍 Searching for admin with email:', email.toLowerCase());
+
     // Check if email is in admin list
-    const admin = await Admin.findOne({ email: email.toLowerCase(), is_active: true });
+    let admin = await Admin.findOne({ email: email.toLowerCase(), is_active: true });
 
     if (!admin) {
+      console.log('[ADMIN] ❌ Admin not found for email:', email.toLowerCase());
+      console.log('[ADMIN] Available admins in DB:', await Admin.find({}, 'email is_active').lean());
       return res.status(403).json({ 
         success: false, 
-        message: 'Access Forbidden: You are not authorized to access the admin dashboard' 
+        message: 'Access Denied: This email is not authorized to access the admin dashboard' 
       });
     }
+
+    console.log('[ADMIN] ✅ Admin found:', admin._id);
 
     // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    console.log('[ADMIN] 📝 Generated OTP:', otp, 'Expires at:', expiresAt);
 
     // Save OTP to admin record
     admin.otp = {
@@ -113,11 +147,27 @@ export const initiateAdminLogin = async (req, res) => {
       expires_at: expiresAt,
       attempts: 0
     };
+    
+    console.log('[ADMIN] 💾 Saving OTP to admin record...');
     await admin.save();
+    console.log('[ADMIN] ✅ OTP saved successfully');
+
+    console.log('[ADMIN] 📧 Attempting to send OTP email to:', email);
 
     // Send OTP email
-    await sendOTPEmail(email, otp, admin.name);
+    try {
+      await sendOTPEmail(email, otp, admin.name);
+      console.log('[ADMIN] ✅ OTP email sent successfully');
+    } catch (emailError) {
+      console.error('[ADMIN] ❌ Error sending OTP email:', emailError.message);
+      console.error('[ADMIN] Full email error:', emailError);
+      return res.status(500).json({ 
+        success: false, 
+        message: `Failed to send verification code: ${emailError.message}` 
+      });
+    }
 
+    console.log('[ADMIN] ===== INITIATE LOGIN SUCCESS =====');
     res.json({
       success: true,
       message: 'Verification code sent to your email',
@@ -125,10 +175,13 @@ export const initiateAdminLogin = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error initiating admin login:', error);
+    console.error('[ADMIN] ===== INITIATE LOGIN ERROR =====');
+    console.error('[ADMIN] Error name:', error.name);
+    console.error('[ADMIN] Error message:', error.message);
+    console.error('[ADMIN] Full error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to send verification code' 
+      message: `Error: ${error.message || 'Failed to send verification code'}` 
     });
   }
 };
@@ -136,43 +189,56 @@ export const initiateAdminLogin = async (req, res) => {
 // Verify OTP and login
 export const verifyAdminOTP = async (req, res) => {
   try {
+    console.log('[ADMIN] ===== VERIFY OTP START =====');
     console.log('[ADMIN] verifyAdminOTP body:', req.body);
     const { email, otp } = req.body;
 
     if (!email || !otp) {
+      console.log('[ADMIN] ❌ Email or OTP missing');
       return res.status(400).json({ 
         success: false, 
         message: 'Email and OTP are required' 
       });
     }
 
+    console.log('[ADMIN] 🔍 Finding admin:', email.toLowerCase());
     const admin = await Admin.findOne({ email: email.toLowerCase(), is_active: true });
 
     if (!admin || !admin.otp) {
+      console.log('[ADMIN] ❌ Admin or OTP not found');
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid request' 
       });
     }
 
+    console.log('[ADMIN] ✅ Admin found, checking OTP validity');
+
     // Check if OTP expired
     if (new Date() > admin.otp.expires_at) {
+      console.log('[ADMIN] ❌ OTP expired:', admin.otp.expires_at);
       return res.status(400).json({ 
         success: false, 
         message: 'Verification code expired. Please request a new one.' 
       });
     }
 
+    console.log('[ADMIN] ✅ OTP not expired');
+
     // Check attempts
     if (admin.otp.attempts >= 3) {
+      console.log('[ADMIN] ❌ Too many attempts:', admin.otp.attempts);
       return res.status(429).json({ 
         success: false, 
         message: 'Too many failed attempts. Please request a new code.' 
       });
     }
 
+    console.log('[ADMIN] 📝 Comparing OTP codes - Expected:', admin.otp.code, '| Provided:', otp);
+
     // Verify OTP
     if (admin.otp.code !== otp) {
+      console.log('[ADMIN] ❌ OTP mismatch!');
       admin.otp.attempts += 1;
       await admin.save();
       
@@ -183,16 +249,24 @@ export const verifyAdminOTP = async (req, res) => {
       });
     }
 
+    console.log('[ADMIN] ✅ OTP verified successfully!');
+
     // OTP verified - clear OTP and update last login
     admin.otp = undefined;
     admin.last_login = new Date();
+    console.log('[ADMIN] 💾 Saving admin record...');
     await admin.save();
+    console.log('[ADMIN] ✅ Admin record saved');
 
+    console.log('[ADMIN] ===== VERIFY OTP SUCCESS =====');
+    console.log('[ADMIN] Admin login complete:', admin.email, 'Role:', admin.role);
+    
     res.json({
       success: true,
       message: 'Login successful',
+      token: generateToken(admin._id),
       admin: {
-        id: admin._id,
+        _id: admin._id,
         email: admin.email,
         name: admin.name,
         role: admin.role,
@@ -201,7 +275,10 @@ export const verifyAdminOTP = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error verifying OTP:', error);
+    console.error('[ADMIN] ===== VERIFY OTP ERROR =====');
+    console.error('[ADMIN] Error name:', error.name);
+    console.error('[ADMIN] Error message:', error.message);
+    console.error('[ADMIN] Full error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to verify code' 

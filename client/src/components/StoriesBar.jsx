@@ -3,13 +3,15 @@ import { Plus, ChevronLeft, ChevronRight, X, Heart, Send, MoreHorizontal } from 
 import moment from "moment";
 import StoryModal from "./StoryModal";
 import StoryViewer from "./StoryViewer";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import { useCustomAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
+import { getAvatarUrl } from "../utils/avatarHelper";
 
 const StoriesBar = () => {
-  const { getToken, user: clerkUser } = useAuth();
+  const { getToken } = useAuth();
+  const { user: clerkUser } = useUser();
   const { customUser } = useCustomAuth();
   const [stories, setStories] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -105,27 +107,7 @@ const StoriesBar = () => {
 
   // Get user avatar (sync across all auth methods)
   const getUserAvatar = () => {
-    // For Clerk users - try different possible image properties
-    if (clerkUser?.profileImageUrl) {
-      return clerkUser.profileImageUrl;
-    }
-    if (clerkUser?.imageUrl) {
-      return clerkUser.imageUrl;
-    }
-    // For custom auth users with profile picture
-    if (customUser?.profile_picture) {
-      return customUser.profile_picture;
-    }
-    // For custom auth users - use DiceBear
-    if (customUser?.email) {
-      return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(customUser.email)}&scale=80`;
-    }
-    // Fallback for Clerk users with firstName/lastName
-    if (clerkUser?.firstName || clerkUser?.lastName) {
-      const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
-      return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&scale=80`;
-    }
-    return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop";
+    return getAvatarUrl(customUser, clerkUser);
   };
 
   return (

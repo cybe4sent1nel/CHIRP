@@ -21,6 +21,7 @@ const syncUserCreation = inngest.createFunction(
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
     let username = email_addresses[0].email_address.split("@")[0];
+    const email = email_addresses[0].email_address;
 
     // Check availability of username
     const user = await User.findOne({ username });
@@ -29,11 +30,17 @@ const syncUserCreation = inngest.createFunction(
       username = username + Math.floor(Math.random() * 10000);
     }
 
+    // Generate unique DiceBear avatar if no image_url provided
+    let profilePicture = image_url;
+    if (!image_url) {
+      profilePicture = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(email)}&scale=80`;
+    }
+
     const userData = {
       _id: id,
-      email: email_addresses[0].email_address,
+      email,
       full_name: first_name + " " + last_name,
-      profile_picture: image_url,
+      profile_picture: profilePicture,
       username,
     };
 
@@ -48,11 +55,18 @@ const syncUserUpdation = inngest.createFunction(
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
+    const email = email_addresses[0].email_address;
+
+    // Generate unique DiceBear avatar if no image_url provided
+    let profilePicture = image_url;
+    if (!image_url) {
+      profilePicture = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(email)}&scale=80`;
+    }
 
     const updatedUserData = {
-      email: email_addresses[0].email_address,
+      email,
       full_name: first_name + " " + last_name,
-      profile_picture: image_url,
+      profile_picture: profilePicture,
     };
     await User.findByIdAndUpdate(id, updatedUserData);
   }

@@ -184,7 +184,7 @@ const App = () => {
         // Simple polling fallback to check for online users or new messages (every 8s)
         const pollInterval = setInterval(async () => {
           try {
-            const baseUrl = import.meta.env.VITE_BASEURL || '';
+            const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || window.location.origin;
             const res = await fetch(`${baseUrl}/api/message/online/${user.id}`);
             if (res.ok) {
               const data = await res.json();

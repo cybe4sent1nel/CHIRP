@@ -5,6 +5,7 @@ import { User, Settings, ChevronDown } from 'lucide-react';
 import AnimatedLogoutButton from './AnimatedLogoutButton';
 import { useCustomAuth } from '../context/AuthContext';
 import { useSelector } from 'react-redux';
+import { getAvatarUrl } from '../utils/avatarHelper';
 
 const ProfileDropdown = () => {
   const { user: clerkUser } = useUser();
@@ -50,13 +51,7 @@ const ProfileDropdown = () => {
   };
 
   const getDisplayImage = () => {
-    // Use stored profile picture if available
-    if (customUser?.profile_picture) return customUser.profile_picture;
-    if (clerkUser?.imageUrl) return clerkUser.imageUrl;
-    
-    // Generate unique DiceBear avatar based on email/username
-    const seed = customUser?.email || customUser?.username || clerkUser?.username || 'default';
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&scale=80`;
+    return getAvatarUrl(customUser, clerkUser);
   };
 
   return (

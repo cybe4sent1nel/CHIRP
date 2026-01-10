@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLogin } from "@refinedev/core";
 import { Card, Form, Input, Button, Typography, Space, Alert } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
@@ -11,7 +11,30 @@ export const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    console.log('[ADMIN UI] 🔐 Navigated to /admin/login');
+    console.log('[ADMIN UI] ===== ADMIN LOGIN PAGE LOADED =====');
+    
+    // Log initial auth state
+    const adminToken = localStorage.getItem('admin_token');
+    const adminEmail = localStorage.getItem('admin_email');
+    const adminData = localStorage.getItem('admin_data');
+    
+    console.log('[ADMIN UI] Current auth state:', {
+      hasAdminToken: !!adminToken,
+      adminEmail,
+      hasAdminData: !!adminData
+    });
+
+    return () => {
+      console.log('[ADMIN UI] ❌ Left /admin/login page');
+    };
+  }, []);
+
   const handleEmailSubmit = async (values) => {
+    console.log('[ADMIN UI] ===== EMAIL SUBMISSION START =====');
+    console.log('[ADMIN UI] 📧 User attempting admin login with email:', values.email);
+    
     setError("");
     setEmail(values.email);
     
@@ -19,9 +42,12 @@ export const AdminLogin = () => {
       { email: values.email },
       {
         onSuccess: () => {
+          console.log('[ADMIN UI] ✅ OTP request successful, moving to verification step');
           setStep(2);
         },
         onError: (error) => {
+          console.log('[ADMIN UI] ❌ OTP request failed:', error.message);
+          console.log('[ADMIN UI] Full error:', error);
           setError(error.message);
         },
       }
@@ -29,12 +55,23 @@ export const AdminLogin = () => {
   };
 
   const handleOtpSubmit = async (values) => {
+    console.log('[ADMIN UI] ===== OTP SUBMISSION START =====');
+    console.log('[ADMIN UI] 🔐 User attempting OTP verification');
+    console.log('[ADMIN UI] Email:', email);
+    console.log('[ADMIN UI] OTP digits:', values.otp.length);
+    
     setError("");
     
     login(
       { email, otp: values.otp },
       {
+        onSuccess: () => {
+          console.log('[ADMIN UI] ✅ OTP verified successfully!');
+          console.log('[ADMIN UI] 🎉 Admin login complete');
+        },
         onError: (error) => {
+          console.log('[ADMIN UI] ❌ OTP verification failed:', error.message);
+          console.log('[ADMIN UI] Full error:', error);
           setError(error.message);
         },
       }
