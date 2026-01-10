@@ -177,8 +177,8 @@ const App = () => {
   
   useEffect(()=>{
     if(user){
-      // Disable SSE in serverless environments (Vercel) because long-lived connections are not supported
-      const isServerless = window.location.host.endsWith('vercel.app') || import.meta.env.VERCEL === true || import.meta.env.PROD;
+      // Only disable SSE if explicitly not supported (avoid Vercel SSE on development)
+      const isServerless = false; // Vercel now supports SSE on serverless functions
       if (isServerless) {
         console.warn('SSE disabled in serverless environment; using polling fallback instead');
         // Simple polling fallback to check for online users or new messages (every 8s)
