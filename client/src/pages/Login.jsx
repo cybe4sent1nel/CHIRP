@@ -242,11 +242,14 @@ const StyledWrapper = styled.div`
   }
 `;
 
-const Pattern = () => (
+const Pattern = ({ paused = false }) => (
   <StyledWrapper>
-    <div className="container" />
+    <div className={`container ${paused ? 'paused' : ''}`} />
   </StyledWrapper>
 );
+
+// Pause background animation when modal open via CSS
+/* In CSS, .container.paused { animation: none; background-image: none; } */
 
 const termsContent = `
 TERMS OF SERVICE
@@ -391,17 +394,25 @@ const LegalModal = ({ isOpen, onClose, type, onAgree }) => {
   const [canAgree, setCanAgree] = useState(false);
   const contentRef = useRef(null);
 
+  const scrollRaf = useRef(null);
+
   const handleScroll = () => {
-    if (contentRef.current) {
+    if (!contentRef.current) return;
+    if (scrollRaf.current) return;
+    scrollRaf.current = requestAnimationFrame(() => {
       const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 20) {
-        setCanAgree(true);
-      }
-    }
+      setCanAgree(scrollTop + clientHeight >= scrollHeight - 20);
+      scrollRaf.current = null;
+    });
   };
 
   useEffect(() => {
     setCanAgree(false);
+    return () => {
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+    };
   }, [isOpen, type]);
 
   if (!isOpen) return null;
@@ -569,7 +580,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-black relative">
-      <Pattern />
+      {!modalType && <Pattern />}
 
       <LegalModal
         isOpen={modalType !== null}
