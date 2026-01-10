@@ -6,24 +6,42 @@ const NoInternetError = ({ onRetry }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (containerRef.current) {
-      fetch('/animations/nodata.json')
-        .then((res) => res.json())
-        .then((animationData) => {
-          lottie.loadAnimation({
-            container: containerRef.current,
-            renderer: 'svg',
-            loop: true,
-            autoplay: true,
-            animationData: animationData,
-          });
-        })
-        .catch((err) => console.error('Error loading animation:', err));
+    if (!containerRef.current) return;
 
-      return () => {
+    const loadAnimation = async () => {
+      try {
+        const response = await fetch('/animations/nodata.json');
+        
+        if (!response.ok) {
+          console.error('Failed to fetch animation:', response.status, response.statusText);
+          return;
+        }
+
+        const animationData = await response.json();
+        
+        if (!containerRef.current) return;
+
+        lottie.loadAnimation({
+          container: containerRef.current,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          animationData: animationData,
+        });
+      } catch (err) {
+        console.error('Error loading animation:', err);
+      }
+    };
+
+    loadAnimation();
+
+    return () => {
+      try {
         lottie.destroy();
-      };
-    }
+      } catch (err) {
+        console.error('Error destroying animation:', err);
+      }
+    };
   }, []);
 
   const handleRetry = () => {

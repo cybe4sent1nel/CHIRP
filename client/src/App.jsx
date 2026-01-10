@@ -177,8 +177,8 @@ const App = () => {
   
   useEffect(()=>{
     if(user){
-      // Vercel serverless has 60s timeout limit - polling is more reliable
-      const isServerless = true;
+      // Only use polling if running on Vercel serverless (backend is on Render now)
+      const isServerless = false;
       if (isServerless) {
         console.warn('SSE disabled in serverless environment; using polling fallback instead');
         // Simple polling fallback to check for online users or new messages (every 8s)
