@@ -19,6 +19,15 @@ const messageRouter = express.Router();
 
 // SSE route is now handled directly in server.js before middleware
 // Only keep POST routes here
+messageRouter.get('/online/:userId', (req, res) => {
+  try {
+    const users = Array.from(global.__onlineUsers ? global.__onlineUsers.keys() : []);
+    res.json({ users });
+  } catch (err) {
+    res.json({ users: [] });
+  }
+});
+
 messageRouter.post("/send", upload.any(), protect, sendMessage);
 messageRouter.post("/get", protect, getChatMessages);
 messageRouter.post("/mark-read", protect, markMessagesAsRead);

@@ -9,6 +9,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
+      // Log diagnostic info for debugging server errors
+      try {
+        console.error('[API] Error response:', {
+          status: error.response.status,
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.response.data
+        });
+      } catch (e) {
+        console.error('[API] Failed to log error response', e);
+      }
+
       // Handle specific HTTP status codes
       // Don't intercept 403 for admin routes - let Refine handle it
       if (error.response.status === 403 && !window.location.pathname.startsWith('/admin')) {

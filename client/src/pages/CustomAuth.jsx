@@ -15,6 +15,29 @@ const CustomAuth = () => {
   const [rightAnimation, setRightAnimation] = useState(null);
   const [catAnimation, setCatAnimation] = useState(null);
   const [showClerkSignIn, setShowClerkSignIn] = useState(false);
+  // Open Clerk modal when URL param mode=clerk is present and close it otherwise
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    console.log('CustomAuth: URL mode param =', mode);
+    if (mode === 'clerk') {
+      setShowClerkSignIn(true);
+    } else {
+      if (showClerkSignIn) {
+        console.log('CustomAuth: mode is not clerk, closing Clerk modal');
+        setShowClerkSignIn(false);
+      }
+    }
+  }, [searchParams, showClerkSignIn]);
+
+  useEffect(() => {
+    console.log('CustomAuth: showClerkSignIn =', showClerkSignIn);
+  }, [showClerkSignIn]);
+
+  // Log full URL on mount to help debug unexpected redirects
+  useEffect(() => {
+    console.log('CustomAuth mount URL:', window.location.href);
+  }, []);
+
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const catLottieRef = useRef(null);
@@ -185,6 +208,7 @@ const CustomAuth = () => {
         const result = await customLogin(formData.identifier, formData.password);
         
         if (result.success) {
+          console.log('CustomAuth: login successful, redirecting to /');
           toast.success('Login successful!');
           // Force a full page reload to refresh auth state
           setLoading(false);
@@ -220,6 +244,7 @@ const CustomAuth = () => {
         );
 
         if (result.success) {
+          console.log('CustomAuth: signup successful, verification email sent to', formData.email);
           // Clear any old auth data
           localStorage.removeItem('customAuthToken');
           localStorage.removeItem('customUser');
@@ -286,47 +311,35 @@ const CustomAuth = () => {
     navigate('/forgot-password');
   };
 
-  if (showClerkSignIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #ffc0e3 0%, #b8e0ff 33%, #b8f5d4 66%, #fff5ba 100%)',
-          backgroundSize: '400% 400%',
-          animation: 'gradient 15s ease infinite'
-        }}>
-        <style>{`
-          @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}</style>
-        <div className="relative z-10 w-full max-w-md">
-          <button
-            onClick={() => setShowClerkSignIn(false)}
-            className="absolute -top-12 left-0 text-white hover:text-gray-100 transition-colors font-medium drop-shadow-lg"
-          >
-            ← Back
-          </button>
-          <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
-            <SignIn 
-              afterSignInUrl="/"
-              appearance={{
-                baseTheme: undefined,
-                elements: {
-                  rootBox: "mx-auto",
-                  card: "bg-white/95 backdrop-blur-xl shadow-2xl border border-white/20"
-                }
-              }}
-            />
-          </Suspense>
-        </div>
+  // Clerk sign-in modal overlay (rendered within the page when requested)
+  const ClerkModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-md">
+        <button
+          onClick={() => setShowClerkSignIn(false)}
+          className="absolute -top-12 left-0 text-white hover:text-gray-100 transition-colors font-medium drop-shadow-lg"
+        >
+          ← Back
+        </button>
+        <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
+          <SignIn 
+            afterSignInUrl="/"
+            appearance={{
+              baseTheme: undefined,
+              elements: {
+                rootBox: "mx-auto",
+                card: "bg-white/95 backdrop-blur-xl shadow-2xl border border-white/20"
+              }
+            }}
+          />
+        </Suspense>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-white">
+      {showClerkSignIn && <ClerkModal />}
       {/* Background Animations */}
       {leftAnimation && (
         <div className="absolute left-0 top-0 w-1/2 h-full opacity-40 pointer-events-none">

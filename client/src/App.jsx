@@ -165,6 +165,28 @@ const App = () => {
   
   useEffect(()=>{
     if(user){
+      // Disable SSE in serverless environments (Vercel) because long-lived connections are not supported
+      const isServerless = window.location.host.endsWith('vercel.app') || import.meta.env.VERCEL === true || import.meta.env.PROD;
+      if (isServerless) {
+        console.warn('SSE disabled in serverless environment; using polling fallback instead');
+        // Simple polling fallback to check for online users or new messages (every 8s)
+        const pollInterval = setInterval(async () => {
+          try {
+            const baseUrl = import.meta.env.VITE_BASEURL || '';
+            const res = await fetch(`${baseUrl}/api/message/online/${user.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              // handle data as needed (e.g., update presence state)
+              console.log('Polled online users:', data.users);
+            }
+          } catch (err) {
+            console.warn('Polling failed:', err.message);
+          }
+        }, 8000);
+
+        return () => clearInterval(pollInterval);
+      }
+
       let eventSource = null;
       let reconnectTimeout = null;
       let reconnectAttempts = 0;

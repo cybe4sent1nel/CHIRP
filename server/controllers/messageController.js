@@ -7,6 +7,8 @@ const connections = {};
 
 // Track online users and their connections
 const onlineUsers = new Map(); // userId -> { res, connectedAt, lastActivity }
+// Expose for best-effort server-side polling endpoints (may be empty on serverless deployments)
+global.__onlineUsers = onlineUsers;
 
 // Function to broadcast user status to all connected clients
 const broadcastUserStatus = (userId, isOnline) => {

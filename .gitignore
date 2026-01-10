@@ -169,3 +169,4 @@ verify-*.js
 !**/public/*.json
 !**/data/*.json
 !client/public/*.json
+.env*.local

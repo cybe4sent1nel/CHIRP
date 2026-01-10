@@ -475,8 +475,6 @@ const LegalModal = ({ isOpen, onClose, type, onAgree }) => {
 
 const Login = () => {
   const [agreed, setAgreed] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -522,61 +520,7 @@ const Login = () => {
     }
   };
 
-  if (showSignIn) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Pattern />
-        <div className="relative z-10">
-          <button
-            onClick={() => setShowSignIn(false)}
-            className="absolute -top-10 left-0 text-white hover:text-green-400 transition-colors"
-          >
-            ← Back
-          </button>
-          <Suspense fallback={<div className="p-4">Loading sign in...</div>}>
-            <SignIn 
-              afterSignInUrl="/"
-              appearance={{
-                baseTheme: undefined,
-                elements: {
-                  rootBox: "mx-auto",
-                  card: "bg-gray-900 shadow-xl"
-                }
-              }}
-            />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
 
-  if (showSignUp) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Pattern />
-        <div className="relative z-10">
-          <button
-            onClick={() => setShowSignUp(false)}
-            className="absolute -top-10 left-0 text-white hover:text-green-400 transition-colors"
-          >
-            ← Back
-          </button>
-          <Suspense fallback={<div className="p-4">Loading sign up...</div>}>
-            <SignUp 
-              afterSignUpUrl="/"
-              appearance={{
-                baseTheme: undefined,
-                elements: {
-                  rootBox: "mx-auto",
-                  card: "bg-gray-900 shadow-xl"
-                }
-              }}
-            />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -666,7 +610,7 @@ const Login = () => {
              <div className="flex flex-col sm:flex-row gap-4">
                <AnimatedButton
                  label="Sign up"
-                 onClick={() => setShowSignUp(true)}
+                 onClick={() => { console.log('Login.jsx: Sign up clicked - navigating to /auth?mode=signup'); navigate('/auth?mode=signup'); }}
                  disabled={!agreed}
                  color="#fec195"
                  textColor="#181818"
@@ -675,7 +619,7 @@ const Login = () => {
 
                <AnimatedButton
                  label="Sign in"
-                 onClick={() => setShowSignIn(true)}
+                 onClick={() => { console.log('Login.jsx: Sign in clicked - navigating to /auth?mode=login'); navigate('/auth?mode=login'); }}
                  disabled={!agreed}
                  color="#4ade80"
                  textColor="#ffffff"
@@ -686,7 +630,7 @@ const Login = () => {
             {/* Continue with Clerk */}
             <div className="text-center mt-6">
               <button
-                onClick={() => setShowSignIn(true)}
+                onClick={() => navigate('/auth?mode=clerk')}
                 disabled={!agreed}
                 className={`text-sm transition ${
                   agreed
