@@ -109,13 +109,14 @@ app.use('/api/auth', authRouter)
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter) 
 app.use('/api/story', storyRouter) 
-app.use('/api/message', messageRouter)
 
-// SSE route for real-time messages - Must be AFTER message router to avoid conflicts
+// SSE route for real-time messages - Must be BEFORE message router to avoid conflicts
 app.get("/api/message/:userId", (req, res) => {
   console.log("SSE route handler called for userId:", req.params.userId);
   sseController(req, res);
 });
+
+app.use('/api/message', messageRouter)
 
 app.use('/api/ai', aiRouter)
 app.use('/api/news', newsRouter)
