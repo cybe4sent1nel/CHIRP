@@ -44,6 +44,16 @@ import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
 
+// Simple request logger to help debug routing and OAuth callbacks in Vercel logs
+app.use((req, res, next) => {
+  try {
+    console.log(`[REQ] ${req.method} ${req.url}`);
+  } catch (e) {
+    console.log('Logger error', e);
+  }
+  next();
+});
+
 await connectDB();
 
 // CORS middleware - apply early
