@@ -39,7 +39,7 @@ export const AdminList = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.get("/admin/list", {
+      const { data } = await api.get("/api/admin/list", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -56,7 +56,7 @@ export const AdminList = () => {
   const handleCreateAdmin = async (values) => {
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.post("/admin/create", values, {
+      const { data } = await api.post("/api/admin/create", values, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -74,7 +74,7 @@ export const AdminList = () => {
   const handleDeleteAdmin = async (adminId) => {
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.delete(`/admin/${adminId}`, {
+      const { data } = await api.delete(`/api/admin/${adminId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

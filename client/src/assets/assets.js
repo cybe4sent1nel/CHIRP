@@ -37,6 +37,11 @@ export const menuItemsData = [
     { to: '/about', label: 'About', Icon: Info },
 ];
 
+// Admin-only menu items
+export const adminMenuItems = [
+    { to: '/admin', label: 'Admin Dashboard', Icon: Home },
+];
+
 export const dummyUserData = {
     "_id": "user_2zdFoZib5lNr614LgkONdD8WG32",
     "email": "admin@example.com",

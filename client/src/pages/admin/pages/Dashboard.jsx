@@ -21,7 +21,7 @@ export const DashboardPage = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.get("/admin/dashboard/stats", {
+      const { data } = await api.get("/api/admin/dashboard/stats", {
         headers: { Authorization: `Bearer ${token}` },
       });
 

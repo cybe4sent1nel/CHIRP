@@ -22,8 +22,21 @@ const CustomAuth = () => {
    const [showVerificationMessage, setShowVerificationMessage] = useState(false);
    const [verificationEmail, setVerificationEmail] = useState('');
    const [acceptedTerms, setAcceptedTerms] = useState(false);
+   const [resendTimer, setResendTimer] = useState(0);
+   const [resendLoading, setResendLoading] = useState(false);
    const catLottieRef = useRef(null);
    
+   // Handle resend email timer countdown
+   useEffect(() => {
+     let interval;
+     if (resendTimer > 0) {
+       interval = setInterval(() => {
+         setResendTimer((prev) => prev - 1);
+       }, 1000);
+     }
+     return () => clearInterval(interval);
+   }, [resendTimer]);
+
    // Open Clerk modal when URL param mode=clerk is present
    useEffect(() => {
      const mode = searchParams.get('mode');
@@ -217,6 +230,32 @@ const CustomAuth = () => {
     }
   };
 
+  const handleResendVerificationEmail = async () => {
+    if (resendTimer > 0) return;
+    
+    setResendLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/resend-verification`, {
+        email: verificationEmail
+      });
+      
+      if (response.data.success) {
+        setResendTimer(60);
+        toast.success('Verification email resent! Check your inbox.', {
+          duration: 4000,
+          icon: '📧'
+        });
+      } else {
+        toast.error(response.data.message || 'Failed to resend verification email');
+      }
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      toast.error(error.response?.data?.message || 'Failed to resend verification email');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -311,6 +350,7 @@ const CustomAuth = () => {
           }
 
           setVerificationEmail(formData.email);
+          setResendTimer(60);
           setShowVerificationMessage(true);
           toast.success('Account created! Please check your email to verify.', {
             duration: 6000,
@@ -441,13 +481,27 @@ const CustomAuth = () => {
                 <p className="text-white/90 text-sm mb-2">
                   We've sent a verification link to <strong>{verificationEmail}</strong>
                 </p>
-                <p className="text-white/80 text-xs mb-3">
+                <p className="text-white/80 text-xs mb-4">
                    Please click the link in the email to verify your account and unlock all features.
                  </p>
+                 <div className="flex gap-2 mb-3">
+                   <button
+                     onClick={handleResendVerificationEmail}
+                     disabled={resendTimer > 0 || resendLoading}
+                     className={`flex-1 text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
+                       resendTimer > 0 || resendLoading
+                         ? 'bg-white/10 text-white/50 cursor-not-allowed'
+                         : 'bg-white hover:bg-white/90 text-teal-600'
+                     }`}
+                   >
+                     {resendLoading ? '⏳ Resending...' : resendTimer > 0 ? `Resend in ${resendTimer}s` : '📧 Resend email'}
+                   </button>
+                 </div>
                  <div className="flex gap-2">
                    <button
                      onClick={() => {
                        setShowVerificationMessage(false);
+                       setResendTimer(0);
                        navigate('/');
                      }}
                      className="flex-1 text-sm bg-white hover:bg-white/90 text-teal-600 font-semibold px-4 py-2 rounded-lg transition-colors"
@@ -458,6 +512,7 @@ const CustomAuth = () => {
                      onClick={() => {
                        setShowVerificationMessage(false);
                        setIsLogin(true);
+                       setResendTimer(0);
                      }}
                      className="text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
                    >

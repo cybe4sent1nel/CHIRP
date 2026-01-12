@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { menuItemsData } from "../assets/assets";
+import { menuItemsData, adminMenuItems } from "../assets/assets";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { CirclePlus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@clerk/clerk-react";
@@ -10,6 +10,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user.value);
   const { getToken } = useAuth();
+  const isAdmin = user?.isAdmin || user?.role === 'admin' || user?.role === 'super_admin';
   const [notificationCount, setNotificationCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const [openSubmenu, setOpenSubmenu] = useState(null);
@@ -123,6 +124,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
 
         <nav className="px-4 mt-2 space-y-1">
+          {/* Regular menu items */}
           {menuItemsData.map((item) => {
             const hasSubmenu = item.submenu && item.submenu.length > 0;
             const isOpen = openSubmenu === item.label;
@@ -218,6 +220,32 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               </NavLink>
             );
           })}
+          
+          {/* Admin-only menu items */}
+          {isAdmin && (
+            <>
+              <div className="my-3 border-t border-gray-200" />
+              {adminMenuItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-4 px-4 py-3 rounded-full text-lg font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-amber-50 text-amber-600"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`
+                  }
+                  title={isCollapsed ? item.label : ''}
+                >
+                  <item.Icon className="w-6 h-6" />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="px-4 mt-6">

@@ -28,14 +28,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Don't intercept API calls, SSE connections, or dynamic content
+  if (event.request.url.includes('/api/') ||
+      event.request.url.includes('/message/') ||
+      event.request.url.includes('blob:') ||
+      event.request.url.includes('localhost:')) {
+    // For API calls, just fetch normally without caching
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses
-        if (response.status === 200) {
+        // Only cache static assets (images, CSS, JS)
+        if (response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, responseToCache).catch((err) => {
+              console.debug('Cache put error:', err.message);
+            });
+          }).catch((err) => {
+            console.debug('Cache open error:', err.message);
           });
         }
         return response;

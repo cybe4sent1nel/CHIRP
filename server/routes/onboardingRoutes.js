@@ -1,13 +1,23 @@
 import express from 'express';
-const router = express.Router();
-import * as onboardingController from '../controllers/onboardingController.js';
+import {
+    saveOnboardingData,
+    checkOnboardingStatus,
+    getPersonalizationData,
+    updateOnboardingData,
+    getAllPersonalizationStats
+} from '../controllers/onboardingController.js';
 import { protect } from '../middlewares/auth.js';
+import { adminProtect } from '../middlewares/adminMiddleware.js';
 
-// Onboarding routes (protected)
-router.post('/onboarding/submit', protect, onboardingController.submitOnboarding);
-router.get('/onboarding/status', protect, onboardingController.getOnboardingResponse);
+const router = express.Router();
 
-// Feedback routes (protected)
-router.post('/feedback/submit', protect, onboardingController.submitFeedback);
+// User routes (protected)
+router.post('/save', protect, saveOnboardingData);
+router.get('/check-status', protect, checkOnboardingStatus);
+router.get('/personalization', protect, getPersonalizationData);
+router.put('/update', protect, updateOnboardingData);
+
+// Admin routes
+router.get('/stats', adminProtect, getAllPersonalizationStats);
 
 export default router;

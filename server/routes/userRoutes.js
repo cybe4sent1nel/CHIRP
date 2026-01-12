@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect } from '../middlewares/auth.js';
-import { acceptConnectionRequest, discoverUsers, followUser, getUserConnections, getUserData, getUserProfiles, searchUsers, sendConnectionRequest, unfollowUser, updateUserData, updatePassword } from '../controllers/userController.js';
+import { acceptConnectionRequest, discoverUsers, followUser, getUserConnections, getUserData, getUserProfiles, searchUsers, sendConnectionRequest, unfollowUser, updateUserData, updatePassword, updatePrivacySettings, blockUser, unblockUser } from '../controllers/userController.js';
 import { upload } from '../configs/multer.js';
 import { getUserRecentMessages } from '../controllers/messageController.js';
 import { updateUserSettings, deleteAccount } from '../controllers/safetyController.js';
@@ -31,6 +31,14 @@ userRouter.get('/recent-messages', protect, getUserRecentMessages)
 
 // Password Update
 userRouter.post('/update-password', protect, updatePassword)
+
+// Privacy Settings
+userRouter.post('/update-privacy', protect, updatePrivacySettings)
+
+// Block/Unblock Users
+userRouter.post('/block', protect, blockUser)
+
+userRouter.post('/unblock', protect, unblockUser)
 
 // Settings & Account Management
 userRouter.post('/settings', protect, updateUserSettings)

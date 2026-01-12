@@ -7,39 +7,78 @@ const PatternBackground = () => {
       <div className="container" />
     </StyledWrapper>
   );
-}
+};
 
 const StyledWrapper = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   z-index: 0;
-  overflow: hidden;
   
   .container {
-    width: 100%;
-    height: 100%;
-    --s: 65px; /* control the size */
-    --c1: #dadee1;
-    --c2: #4a99b4;
-    --c3: #9cceb5;
+    position: fixed;
+    inset: 0;
+    --c: 7px;
+    background-color: #fff;
+    background-image: radial-gradient(
+        circle at 50% 50%,
+        #0000 1.5px,
+        #fff 0 var(--c),
+        #0000 var(--c)
+      ),
+      radial-gradient(
+        circle at 50% 50%,
+        #0000 1.5px,
+        #fff 0 var(--c),
+        #0000 var(--c)
+      ),
+      radial-gradient(circle at 50% 50%, #f00, #f000 60%),
+      radial-gradient(circle at 50% 50%, #ff0, #ff00 60%),
+      radial-gradient(circle at 50% 50%, #0f0, #0f00 60%),
+      radial-gradient(ellipse at 50% 50%, #00f, #00f0 60%);
+    background-size:
+      12px 20.7846097px,
+      12px 20.7846097px,
+      200% 200%,
+      200% 200%,
+      200% 200%,
+      200% 20.7846097px;
+    --p: 0px 0px, 6px 10.39230485px;
+    background-position:
+      var(--p),
+      0% 0%,
+      0% 0%,
+      0% 0%;
+    animation:
+      wee 40s linear infinite,
+      filt 6s linear infinite;
+  }
 
-    --_c: 75%, var(--c3) 52.72deg, #0000 0;
-    --_g1: conic-gradient(from -116.36deg at 25% var(--_c));
-    --_g2: conic-gradient(from 63.43deg at 75% var(--_c));
-    background: var(--_g1), var(--_g1) calc(3 * var(--s)) calc(var(--s) / 2),
-      var(--_g2), var(--_g2) calc(3 * var(--s)) calc(var(--s) / 2),
-      conic-gradient(
-        var(--c2) 63.43deg,
-        var(--c1) 0 116.36deg,
-        var(--c2) 0 180deg,
-        var(--c1) 0 243.43deg,
-        var(--c2) 0 296.15deg,
-        var(--c1) 0
-      );
-    background-size: calc(2 * var(--s)) var(--s);
+  @keyframes filt {
+    0% {
+      filter: hue-rotate(0deg);
+    }
+    to {
+      filter: hue-rotate(360deg);
+    }
+  }
+
+  @keyframes wee {
+    0% {
+      background-position:
+        var(--p),
+        800% 400%,
+        1000% -400%,
+        -1200% -600%,
+        400% 41.5692194px;
+    }
+    to {
+      background-position:
+        var(--p),
+        0% 0%,
+        0% 0%,
+        0% 0%,
+        0% 0%;
+    }
   }
 `;
 

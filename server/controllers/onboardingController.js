@@ -1,179 +1,360 @@
-import OnboardingResponse from '../models/OnboardingResponse.js';
-import Feedback from '../models/Feedback.js';
-import nodemailer from 'nodemailer';
+import UserOnboarding from '../models/UserOnboarding.js';
+import User from '../models/User.js';
+import sendEmail from '../configs/nodeMailer.js';
 
-// Submit onboarding response
-export const submitOnboarding = async (req, res) => {
-  try {
-    const user_id = req.user.userId;
-    const { age_group, interests, referral_source, referral_details, content_preferences } = req.body;
+// Save onboarding data
+export const saveOnboardingData = async (req, res) => {
+    try {
+        const userId = req.userId;
+        console.log('[ONBOARDING] Request headers:', req.headers.authorization ? 'Auth header present' : 'No auth header');
+        console.log('[ONBOARDING] req.userId:', userId);
+        
+        if (!userId) {
+            console.error('[ONBOARDING] No userId found in request');
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized - no user ID found'
+            });
+        }
 
-    // Check if user already submitted
-    const existing = await OnboardingResponse.findOne({ user_id });
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: 'Onboarding already completed'
-      });
+        const {
+            age,
+            gender,
+            contentCategories,
+            appPurpose,
+            contentTypes,
+            activeTimePreference,
+            expectedEngagementLevel,
+            notificationPreferences
+        } = req.body;
+
+        console.log('[ONBOARDING] Saving onboarding data for user:', userId);
+
+        // Check if onboarding data already exists
+        let onboardingData = await UserOnboarding.findOne({ userId });
+
+        if (onboardingData) {
+            // Update existing
+            onboardingData = await UserOnboarding.findByIdAndUpdate(
+                onboardingData._id,
+                {
+                    age,
+                    gender,
+                    contentCategories,
+                    appPurpose,
+                    contentTypes,
+                    activeTimePreference,
+                    expectedEngagementLevel,
+                    notificationPreferences,
+                    isOnboarded: true,
+                    lastUpdated: new Date()
+                },
+                { new: true }
+            );
+        } else {
+            // Create new
+            onboardingData = new UserOnboarding({
+                userId,
+                age,
+                gender,
+                contentCategories,
+                appPurpose,
+                contentTypes,
+                activeTimePreference,
+                expectedEngagementLevel,
+                notificationPreferences,
+                isOnboarded: true
+            });
+
+            await onboardingData.save();
+        }
+
+        // Update user's notification settings
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                notification_settings: {
+                    emailNotifications: notificationPreferences?.email || false,
+                    pushNotifications: notificationPreferences?.push || true,
+                }
+            }
+        );
+
+        console.log('[ONBOARDING] ✅ Onboarding data saved successfully for user:', userId);
+
+        res.json({
+            success: true,
+            message: 'Onboarding data saved successfully',
+            onboardingData
+        });
+
+    } catch (error) {
+        console.error('[ONBOARDING] ❌ Error saving onboarding data:', error.message);
+        console.error('[ONBOARDING] Stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to save onboarding data: ' + error.message,
+            error: error.message
+        });
     }
-
-    const response = new OnboardingResponse({
-      user_id,
-      age_group,
-      interests,
-      referral_source,
-      referral_details,
-      content_preferences
-    });
-
-    await response.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Onboarding completed successfully',
-      data: response
-    });
-
-  } catch (error) {
-    console.error('Error submitting onboarding:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to submit onboarding'
-    });
-  }
 };
 
-// Get user's onboarding response
-export const getOnboardingResponse = async (req, res) => {
-  try {
-    const user_id = req.user.userId;
+// Check if user is onboarded
+export const checkOnboardingStatus = async (req, res) => {
+    try {
+        const userId = req.userId;
 
-    const response = await OnboardingResponse.findOne({ user_id });
+        console.log('[ONBOARDING] Checking onboarding status for user:', userId);
 
-    res.json({
-      success: true,
-      data: response,
-      completed: !!response
-    });
+        const onboardingData = await UserOnboarding.findOne({ userId });
 
-  } catch (error) {
-    console.error('Error fetching onboarding:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch onboarding'
-    });
-  }
+        const isOnboarded = onboardingData ? onboardingData.isOnboarded : false;
+
+        console.log('[ONBOARDING] User onboarding status:', isOnboarded);
+
+        res.json({
+            success: true,
+            isOnboarded,
+            data: onboardingData || null
+        });
+
+    } catch (error) {
+        console.error('[ONBOARDING] Error checking onboarding status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to check onboarding status',
+            error: error.message
+        });
+    }
 };
 
-// Submit feedback
-export const submitFeedback = async (req, res) => {
-  try {
-    const user_id = req.user.userId;
-    const {
-      overall_rating,
-      features_rating,
-      what_you_like,
-      what_to_improve,
-      missing_features,
-      would_recommend,
-      nps_score,
-      contact_for_followup,
-      feedback_type
-    } = req.body;
+// Get personalization data for feed
+export const getPersonalizationData = async (req, res) => {
+    try {
+        const userId = req.userId;
 
-    const feedback = new Feedback({
-      user_id,
-      overall_rating,
-      features_rating,
-      what_you_like,
-      what_to_improve,
-      missing_features,
-      would_recommend,
-      nps_score,
-      contact_for_followup,
-      feedback_type: feedback_type || 'manual'
-    });
+        console.log('[ONBOARDING] Fetching personalization data for user:', userId);
 
-    await feedback.save();
+        const onboardingData = await UserOnboarding.findOne({ userId });
 
-    res.status(201).json({
-      success: true,
-      message: 'Thank you for your feedback!',
-      data: feedback
-    });
+        if (!onboardingData) {
+            return res.json({
+                success: true,
+                message: 'No personalization data found',
+                personalization: null
+            });
+        }
 
-  } catch (error) {
-    console.error('Error submitting feedback:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to submit feedback'
-    });
-  }
+        res.json({
+            success: true,
+            personalization: {
+                contentCategories: onboardingData.contentCategories,
+                contentTypes: onboardingData.contentTypes,
+                activeTimePreference: onboardingData.activeTimePreference,
+                appPurpose: onboardingData.appPurpose,
+                engagementLevel: onboardingData.expectedEngagementLevel
+            }
+        });
+
+    } catch (error) {
+        console.error('[ONBOARDING] Error fetching personalization data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch personalization data',
+            error: error.message
+        });
+    }
 };
 
-// Send feedback request email
-export const sendFeedbackEmail = async (userEmail, userName) => {
-  try {
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
+// Update onboarding data
+export const updateOnboardingData = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const {
+            age,
+            gender,
+            contentCategories,
+            appPurpose,
+            contentTypes,
+            activeTimePreference,
+            expectedEngagementLevel,
+            notificationPreferences
+        } = req.body;
 
-    const feedbackLink = `${process.env.FRONTEND_URL}/feedback`;
+        console.log('[ONBOARDING] Updating onboarding data for user:', userId);
 
-    const mailOptions = {
-      from: process.env.SENDER_EMAIL,
-      to: userEmail,
-      subject: 'We\'d Love Your Feedback on Chirp! 💭',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-size: 28px; }
-            .content { padding: 40px 30px; }
-            .emoji { font-size: 48px; text-align: center; margin: 20px 0; }
-            .button { display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
-            .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🐦 Chirp</h1>
-            </div>
-            <div class="content">
-              <h2>Hi ${userName}!</h2>
-              <div class="emoji">💭</div>
-              <p>You've been using Chirp for a week now, and we'd love to hear from you!</p>
-              <p>Your feedback helps us make Chirp better for everyone. It'll only take 2 minutes.</p>
-              <div style="text-align: center;">
-                <a href="${feedbackLink}" class="button">Share Your Thoughts</a>
-              </div>
-              <p style="color: #666; font-size: 14px; margin-top: 30px;">Thank you for being part of our community! 🙏</p>
-            </div>
-            <div class="footer">
-              <p>© 2026 Chirp Social Media Platform</p>
-              <p>If you prefer not to receive these emails, you can adjust your preferences in settings.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
-    };
+        const onboardingData = await UserOnboarding.findOneAndUpdate(
+            { userId },
+            {
+                age,
+                gender,
+                contentCategories,
+                appPurpose,
+                contentTypes,
+                activeTimePreference,
+                expectedEngagementLevel,
+                notificationPreferences,
+                lastUpdated: new Date()
+            },
+            { new: true }
+        );
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Feedback email sent to ${userEmail}`);
+        if (!onboardingData) {
+            return res.status(404).json({
+                success: false,
+                message: 'Onboarding data not found'
+            });
+        }
 
-  } catch (error) {
-    console.error('Error sending feedback email:', error);
-  }
+        console.log('[ONBOARDING] Onboarding data updated successfully');
+
+        res.json({
+            success: true,
+            message: 'Onboarding data updated successfully',
+            onboardingData
+        });
+
+    } catch (error) {
+        console.error('[ONBOARDING] Error updating onboarding data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update onboarding data',
+            error: error.message
+        });
+    }
+};
+
+// Get all personalization data for analytics
+export const getAllPersonalizationStats = async (req, res) => {
+    try {
+        console.log('[ONBOARDING] Fetching personalization stats');
+
+        const stats = await UserOnboarding.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalOnboarded: {
+                        $sum: {
+                            $cond: ['$isOnboarded', 1, 0]
+                        }
+                    },
+                    topCategories: {
+                        $push: '$contentCategories'
+                    },
+                    topContentTypes: {
+                        $push: '$contentTypes'
+                    },
+                    ageDistribution: {
+                        $push: '$age'
+                    },
+                    engagementDistribution: {
+                        $push: '$expectedEngagementLevel'
+                    }
+                }
+            }
+        ]);
+
+        // Count occurrences
+        const processStats = (arr) => {
+            const counts = {};
+            arr.flat().forEach(item => {
+                if (item) {
+                    counts[item] = (counts[item] || 0) + 1;
+                }
+            });
+            return counts;
+        };
+
+        const processedStats = stats[0] ? {
+            totalOnboarded: stats[0].totalOnboarded,
+            topCategories: processStats(stats[0].topCategories),
+            topContentTypes: processStats(stats[0].topContentTypes),
+            ageDistribution: processStats(stats[0].ageDistribution),
+            engagementDistribution: processStats(stats[0].engagementDistribution)
+        } : null;
+
+        console.log('[ONBOARDING] Personalization stats fetched');
+
+        res.json({
+            success: true,
+            stats: processedStats
+        });
+
+    } catch (error) {
+        console.error('[ONBOARDING] Error fetching personalization stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch personalization stats',
+            error: error.message
+        });
+    }
+};
+
+// Send feedback email (used by Inngest)
+export const sendFeedbackEmail = async (email, username) => {
+    try {
+        const emailBody = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f9fafb; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px; text-align: center; }
+                    .header h1 { color: white; margin: 0; font-size: 28px; }
+                    .content { padding: 32px; }
+                    .cta-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin: 20px 0; font-weight: 600; }
+                    .footer { background: #f9fafb; padding: 24px; text-align: center; color: #64748b; font-size: 14px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🐦 We'd Love Your Feedback!</h1>
+                    </div>
+                    
+                    <div class="content">
+                        <h2 style="color: #1e293b;">Hi ${username}!</h2>
+                        <p style="color: #64748b; line-height: 1.6;">
+                            You've been on Chirp for a week now! We'd love to hear what you think about your experience.
+                        </p>
+                        <p style="color: #64748b; line-height: 1.6;">
+                            Your feedback helps us improve and create the best social media platform for you.
+                        </p>
+                        
+                        <div style="text-align: center;">
+                            <a href="${process.env.FRONTEND_URL || 'https://chirp.social'}/feedback" class="cta-button">
+                                Share Your Feedback
+                            </a>
+                        </div>
+
+                        <div style="background: #f0f9ff; padding: 16px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #0284c7;">
+                            <p style="margin: 0; color: #0c4a6e; font-weight: 600;">💡 Quick Feedback Survey</p>
+                            <p style="margin: 8px 0 0 0; color: #0369a1; font-size: 14px; line-height: 1.6;">
+                                Just 2 minutes to help us understand your needs better!
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="footer">
+                        <p>Thanks for being part of the Chirp community!</p>
+                        <p style="margin-top: 16px;">© ${new Date().getFullYear()} Chirp. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        await sendEmail({
+            to: email,
+            subject: '🐦 We\'d Love Your Feedback on Chirp!',
+            body: emailBody
+        });
+
+        console.log(`[ONBOARDING] Feedback email sent to ${email}`);
+        return { success: true, message: 'Feedback email sent' };
+    } catch (error) {
+        console.error('[ONBOARDING] Error sending feedback email:', error);
+        throw error;
+    }
 };

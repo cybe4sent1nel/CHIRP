@@ -4,6 +4,7 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useSelector } from 'react-redux';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import PrivacySettingsModal from '../components/PrivacySettingsModal';
 
 const Settings = () => {
   const { signOut, getToken } = useAuth();
@@ -12,6 +13,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('privacy');
   const [isSaving, setIsSaving] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState([]);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Privacy & Safety Settings
   const [privacySettings, setPrivacySettings] = useState({
@@ -331,7 +333,16 @@ const Settings = () => {
               {/* Privacy & Safety Tab */}
               {activeTab === 'privacy' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Privacy & Safety</h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900">Privacy & Safety</h2>
+                    <button
+                      onClick={() => setShowPrivacyModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      <Shield size={18} />
+                      Account Privacy
+                    </button>
+                  </div>
 
                   {/* Messages Section */}
                   <div className="mb-8">
@@ -734,6 +745,13 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* Privacy Settings Modal */}
+      <PrivacySettingsModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        user={user}
+      />
     </div>
   );
 };

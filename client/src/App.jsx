@@ -26,6 +26,7 @@ import Buzz from "./pages/Buzz";
 import HashtagPage from "./pages/HashtagPage";
 import Settings from "./pages/Settings";
 import ChirpPlay from "./pages/ChirpPlay";
+import Games from "./pages/Games";
 import WordLadder from "./components/games/WordLadder";
 import QuickMath from "./components/games/QuickMath";
 import MemoryFlip from "./components/games/MemoryFlip";
@@ -38,8 +39,9 @@ import CloudUploadLoader from "./components/CloudUploadLoader";
 import NoInternetError from "./components/NoInternetError";
 import Forbidden from "./pages/errors/Forbidden";
 import ServerError from "./pages/errors/ServerError";
+import MaintenancePage from "./pages/errors/Maintenance";
 import ErrorBoundary from "./components/ErrorBoundary";
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDashboard from "./pages/admin/index.jsx";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import Layout from "./pages/Layout";
 import { Toaster } from "react-hot-toast";
@@ -176,7 +178,7 @@ const App = () => {
   }, []);
   
   useEffect(()=>{
-    if(user){
+    if(user || customAuthActive){
       // Only use polling if running on Vercel serverless (backend is on Render now)
       const isServerless = false;
       if (isServerless) {
@@ -229,13 +231,52 @@ const App = () => {
           // Use full absolute URL for SSE
           let baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || window.location.origin;
           // Remove trailing /api if it exists, we'll add it explicitly
-          baseUrl = baseUrl.replace(/\/api\/?$/, '');
-          const sseUrl = baseUrl + '/api/message/' + user.id;
-          console.log('Attempting SSE connection to:', sseUrl);
+          baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+          
+          // Get userId from Clerk user or custom auth user
+          let finalUserId = null;
+          
+          // Priority 1: Clerk user
+          if (user?.id) {
+            finalUserId = user.id;
+            console.log('[SSE] Using Clerk user ID:', finalUserId);
+          } 
+          // Priority 2: Custom auth user from localStorage
+          else if (customAuthActive) {
+            const storedUser = localStorage.getItem('customUser');
+            if (storedUser) {
+              try {
+                const parsed = JSON.parse(storedUser);
+                finalUserId = parsed._id;
+                console.log('[SSE] Using custom auth user ID:', finalUserId);
+              } catch (e) {
+                console.error('[SSE] Error parsing stored user:', e);
+              }
+            }
+          }
+          
+          if (!finalUserId) {
+            console.error('[SSE] Could not determine user ID for SSE connection');
+            return;
+          }
+
+          // Ensure userId is valid format
+          if (!finalUserId || (typeof finalUserId !== 'string') || finalUserId.length === 0) {
+            console.error('[SSE] Invalid user ID format:', finalUserId);
+            return;
+          }
+          
+          const sseUrl = baseUrl + '/api/message/' + encodeURIComponent(finalUserId);
+          console.log('[SSE] Attempting SSE connection to:', sseUrl);
+          console.log('[SSE] Frontend origin:', window.location.origin);
+          
+          // Create EventSource
+          // Note: EventSource doesn't support withCredentials natively
+          // CORS headers from server allow the origin
           eventSource = new EventSource(sseUrl);
 
           eventSource.onopen = () => {
-            console.log('SSE connection established successfully');
+            console.log('[SSE] ✅ Connection established successfully');
             reconnectAttempts = 0; // Reset reconnect attempts on successful connection
           }
 
@@ -294,26 +335,31 @@ const App = () => {
           }
 
           eventSource.onerror = (error) => {
-            console.error('SSE connection error:', error);
-            console.error('EventSource readyState:', eventSource.readyState);
+            console.error('[SSE] ❌ Connection error:', error);
+            console.error('[SSE] EventSource readyState:', eventSource?.readyState);
             // 0 = CONNECTING, 1 = OPEN, 2 = CLOSED
-            console.error('Error details:', {
-              type: error.type,
-              message: error.message,
-              readyState: eventSource.readyState
+            console.error('[SSE] Error details:', {
+              type: error?.type,
+              message: error?.message,
+              readyState: eventSource?.readyState,
+              code: error?.code
             });
-            eventSource?.close();
+            
+            // Don't attempt to close if already closed
+            if (eventSource && eventSource.readyState !== 2) {
+              eventSource.close();
+            }
 
             // Attempt to reconnect with exponential backoff
             if (reconnectAttempts < maxReconnectAttempts) {
               const delay = initialReconnectDelay * Math.pow(2, reconnectAttempts);
-              console.log(`Reconnecting SSE in ${delay}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+              console.log(`[SSE] ⏳ Reconnecting in ${delay}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
               reconnectTimeout = setTimeout(() => {
                 reconnectAttempts++;
                 connectSSE();
               }, delay);
             } else {
-              console.error('Max SSE reconnection attempts reached');
+              console.error('[SSE] ❌ Max SSE reconnection attempts reached');
               toast.error('Connection lost. Please refresh the page.');
             }
           }
@@ -326,7 +372,8 @@ const App = () => {
       connectSSE();
 
       return () => {
-        console.log('App.jsx useEffect cleanup - closing EventSource for user:', user?.id);
+        const cleanupUserId = user?.id || (customAuthActive ? localStorage.getItem('customUser')?.split('"_id":"')[1]?.split('"')[0] : 'unknown');
+        console.log('App.jsx useEffect cleanup - closing EventSource for user:', cleanupUserId);
         if (eventSource) {
           console.log('EventSource state before close:', eventSource.readyState);
           eventSource.close();
@@ -337,7 +384,7 @@ const App = () => {
         }
       }
     }
-  }, [user, dispatch])
+  }, [user, customAuthActive, dispatch])
   
   if (showNetworkError) {
     return (
@@ -366,6 +413,7 @@ const App = () => {
             {/* Error Pages - Accessible globally */}
             <Route path="/error/403" element={<Forbidden />} />
             <Route path="/error/500" element={<ServerError />} />
+            <Route path="/maintenance" element={<MaintenancePage />} />
             
             {/* Landing Page - Clerk Login as default */}
             <Route path="/welcome" element={<Login />} />
@@ -400,6 +448,7 @@ const App = () => {
             <Route path="create-channel" element={<CreateChannel />} />
             <Route path="channel/:channelId" element={<ChannelDetail />} />
             <Route path="chirpplay" element={<ChirpPlay />} />
+            <Route path="games" element={<Games />} />
             <Route path="chirpplay/queens" element={<Queens />} />
             <Route path="chirpplay/tents" element={<Tents />} />
             <Route path="chirpplay/zip" element={<Zip />} />

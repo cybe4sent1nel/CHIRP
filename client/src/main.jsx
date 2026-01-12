@@ -24,6 +24,25 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Debug routing/redirects
+console.log('[MAIN] Application starting...');
+console.log('[MAIN] Current path:', window.location.pathname);
+
+// Log location changes
+const originalSetHref = Object.getOwnPropertyDescriptor(Location.prototype, 'href')?.set;
+if (originalSetHref) {
+  Object.defineProperty(window.location, 'href', {
+    set(value) {
+      console.log('[MAIN] 🔄 REDIRECT: window.location.href being set to:', value);
+      console.trace('[MAIN] Redirect stack trace:');
+      originalSetHref.call(window.location, value);
+    },
+    get() {
+      return Object.getPrototypeOf(Object.getPrototypeOf(window.location)).href;
+    }
+  });
+}
+
 createRoot(document.getElementById("root")).render(
   <ClerkProvider 
     publishableKey={PUBLISHABLE_KEY}

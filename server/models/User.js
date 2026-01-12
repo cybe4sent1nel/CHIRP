@@ -97,6 +97,29 @@ const userSchema = mongoose.Schema({
         privateAccount: {type: Boolean, default: false},
         allowAIFeatures: {type: Boolean, default: true},
     },
+    // Role-based access
+    role: {type: String, enum: ['user', 'admin'], default: 'user'},
+    isAdmin: {type: Boolean, default: false},
+    // Privacy settings for account
+    privacy: {
+        wholeAccountPrivate: {type: Boolean, default: false},
+        profilePrivate: {type: Boolean, default: false},
+        detailsPrivate: {type: Boolean, default: false},
+        postsPrivate: {type: Boolean, default: false},
+        storiesPrivate: {type: Boolean, default: false},
+    },
+    // Blocked users
+    blockedUsers: [{type: String, ref: 'User'}],
+    // Connection requests
+    connectionRequests: [{
+        from: {type: String, ref: 'User'},
+        sentAt: {type: Date, default: Date.now}
+    }],
+    // Follow requests
+    followRequests: [{
+        from: {type: String, ref: 'User'},
+        sentAt: {type: Date, default: Date.now}
+    }],
     // Login tracking for security
     lastLoginLocation: {type: String},
     lastLoginDevice: {type: String},

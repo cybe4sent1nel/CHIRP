@@ -34,7 +34,7 @@ export const ReportList = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.get("/admin/reports", {
+      const { data } = await api.get("/api/admin/reports", {
         headers: { Authorization: `Bearer ${token}` },
       });
 

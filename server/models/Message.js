@@ -45,6 +45,12 @@ const messageSchema = new mongoose.Schema(
     viewed_by: [{ type: String, ref: "User" }],
     viewed_at: { type: Date },
     allow_save: { type: Boolean, default: true },
+    
+    // Disappearing Messages
+    disappearing_message: { type: Boolean, default: false },
+    disappear_at: { type: Date }, // Timestamp when message should disappear
+    disappear_duration: { type: String }, // "15s", "1m", "1h", "1d", "7d"
+    disappeared: { type: Boolean, default: false }, // Has this message disappeared?
   },
   { timestamps: true, minimize: false }
 );

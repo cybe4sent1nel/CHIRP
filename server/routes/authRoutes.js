@@ -5,6 +5,7 @@ import {
   signup,
   login,
   verifyEmail,
+  resendVerificationEmail,
   forgotPassword,
   resetPassword,
   verifyToken
@@ -18,6 +19,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 authRouter.post('/signup', signup);
 authRouter.post('/login', login);
 authRouter.get('/verify-email', verifyEmail);
+authRouter.post('/resend-verification', resendVerificationEmail);
 authRouter.post('/forgot-password', forgotPassword);
 authRouter.post('/reset-password', resetPassword);
 authRouter.get('/verify-token', verifyToken);

@@ -28,7 +28,7 @@ export const getUserData = async (req, res) => {
 
 export const updateUserData = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
 
     let { username, bio, location, full_name, job_title, company, country, city, website,
           linkedin, github, twitter, education, experience, certificates, skills, privacy_settings } = req.body;
@@ -139,7 +139,7 @@ export const updateUserData = async (req, res) => {
 
 export const discoverUsers = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { input } = req.body;
 
     // Ensure input is string and not empty
@@ -168,7 +168,7 @@ export const discoverUsers = async (req, res) => {
 // Follow User
 export const followUser = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { id } = req.body;
 
     const user = await User.findById(userId);
@@ -197,7 +197,7 @@ export const followUser = async (req, res) => {
 // Unfollow User
 export const unfollowUser = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { id } = req.body;
 
     const user = await User.findById(userId);
@@ -219,8 +219,12 @@ export const unfollowUser = async (req, res) => {
 
 export const sendConnectionRequest = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { id } = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
 
     // Check if user has sent more than 20 connection requests in the last 24 hours
     const last24hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -313,7 +317,7 @@ export const getUserConnections = async (req, res) => {
 
 export const acceptConnectionRequest = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { id } = req.body
 
     const connection = await Connection.findOne({from_user_id: id, to_user_id: userId})
@@ -345,7 +349,7 @@ export const acceptConnectionRequest = async (req, res) => {
 export const getUserProfiles = async (req, res) => {
   try {
     const {profileId} = req.body
-    const viewerId = req.auth()?.userId || null; // Get viewer ID if authenticated
+    const viewerId = getUserId(req) || null; // Get viewer ID if authenticated
     
     console.log(profileId)
     const profile = await User.findById(profileId)
@@ -426,7 +430,7 @@ export const searchUsers = async (req, res) => {
 // Update Password
 export const updatePassword = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserId(req);
     const { oldPassword, newPassword } = req.body;
 
     // Validate inputs
@@ -496,6 +500,100 @@ export const updatePassword = async (req, res) => {
 
   } catch (error) {
     console.error('Update password error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Update privacy settings
+export const updatePrivacySettings = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { privacy } = req.body;
+    if (!privacy) {
+      return res.status(400).json({ success: false, message: "Privacy settings required" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { privacy },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Privacy settings updated successfully",
+      user
+    });
+  } catch (error) {
+    console.error('Update privacy error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Block user
+export const blockUser = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, message: "Target user ID required" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { blockedUsers: targetUserId } },
+      { new: true }
+    );
+
+    res.json({ 
+      success: true, 
+      message: "User blocked successfully",
+      user
+    });
+  } catch (error) {
+    console.error('Block user error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Unblock user
+export const unblockUser = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, message: "Target user ID required" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { blockedUsers: targetUserId } },
+      { new: true }
+    );
+
+    res.json({ 
+      success: true, 
+      message: "User unblocked successfully",
+      user
+    });
+  } catch (error) {
+    console.error('Unblock user error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

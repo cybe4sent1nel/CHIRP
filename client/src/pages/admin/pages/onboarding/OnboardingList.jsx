@@ -16,7 +16,7 @@ export const OnboardingList = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.get("/admin/onboarding-responses", {
+      const { data } = await api.get("/api/admin/onboarding-responses", {
         headers: { Authorization: `Bearer ${token}` },
       });
 

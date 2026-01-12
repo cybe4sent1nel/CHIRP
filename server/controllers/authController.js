@@ -94,12 +94,9 @@ export const signup = async (req, res) => {
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Create user ID
-    const userId = 'user_' + crypto.randomBytes(16).toString('hex');
-
     // Create user with unique dicebear avatar based on email
+    // Let MongoDB generate the _id automatically (24-char hex string for SSE compatibility)
     const user = await User.create({
-      _id: userId,
       email,
       password: hashedPassword,
       full_name,
@@ -148,12 +145,15 @@ export const signup = async (req, res) => {
       message: 'Account created! Please check your email to verify your account.',
       token,
       user: {
+        _id: user._id,
         id: user._id,
         email: user.email,
         full_name: user.full_name,
         username: user.username,
         profile_picture: user.profile_picture,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
+        isAdmin: user.isAdmin,
+        role: user.role
       }
     });
   } catch (error) {
@@ -266,12 +266,15 @@ export const login = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
+        _id: user._id,
         id: user._id,
         email: user.email,
         full_name: user.full_name,
         username: user.username,
         profile_picture: user.profile_picture,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
+        isAdmin: user.isAdmin,
+        role: user.role
       }
     });
     console.log('[AUTH] Login response sent successfully');
@@ -461,6 +464,74 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// Resend verification email
+export const resendVerificationEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email is required' 
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No account found with this email address' 
+      });
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This email is already verified. You can log in now.' 
+      });
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = verificationToken;
+    await user.save();
+
+    // Send verification email
+    const verificationLink = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
+    console.log('Resending verification email to:', email);
+    
+    try {
+      await sendEmailWithFallback({
+        to: email,
+        subject: '✨ Verify Your Email - Welcome to Chirp!',
+        html: verificationEmail(user.full_name, verificationLink)
+      });
+
+      console.log('[AUTH] Verification email resent to:', email);
+
+      res.json({
+        success: true,
+        message: 'Verification email sent successfully!'
+      });
+    } catch (emailError) {
+      console.error('[AUTH] Email sending failed:', emailError);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send verification email. Please try again.' 
+      });
+    }
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error. Please try again later.' 
+    });
+  }
+};
+
 // Verify JWT Token
 export const verifyToken = async (req, res) => {
   try {
@@ -506,6 +577,7 @@ export default {
   signup,
   login,
   verifyEmail,
+  resendVerificationEmail,
   forgotPassword,
   resetPassword,
   verifyToken

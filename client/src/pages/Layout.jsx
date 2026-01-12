@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sidebar from "../components/Sidebar";
 import ProfileDropdown from "../components/ProfileDropdown";
+import SearchUsers from "../components/SearchUsers";
 import { Outlet } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { dummyUserData } from "../assets/assets";
@@ -14,8 +15,9 @@ const Layout = () => {
     <div className="w-full flex h-screen">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <div className="flex-1 bg-slate-50 flex flex-col">
-        {/* Top Bar with Profile Dropdown */}
-        <div className="flex items-center justify-end px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
+        {/* Top Bar with Search and Profile Dropdown */}
+        <div className="flex items-center justify-between gap-4 px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
+          <SearchUsers />
           <ProfileDropdown />
         </div>
         

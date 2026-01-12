@@ -6,7 +6,7 @@ const MessageStatus = ({ status, message }) => {
   const actualStatus = status || 
     (message?.read || message?.read_at ? 'read' : 
      message?.delivered || message?.delivered_at ? 'delivered' : 
-     message?.sent ? 'sent' : 
+     message?.sent || message?.sent === true || message?.createdAt ? 'sent' : 
      'pending');
   
   // Pending/Sending - clock icon

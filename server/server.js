@@ -19,7 +19,8 @@ import { inngest, functions } from "./inngest/index.js"
 import { serve } from 'inngest/express';
 import { clerkMiddleware } from '@clerk/express'
 import passport from './configs/passport.js';
-import { sseController } from "./controllers/messageController.js";
+import { handleSSEConnection, handleSSEOptions } from "./controllers/sseController.js";
+import { initializeMessageExpirations, clearAllExpirationTimers } from "./services/messageExpirationService.js";
 import userRouter from "./routes/userRoutes.js";
 import postRouter from "./routes/postRoutes.js";
 import storyRouter from "./routes/storyRoutes.js";
@@ -37,17 +38,35 @@ import analyticsRouter from "./routes/analytics.js";
 import hashtagRouter from "./routes/hashtagRoutes.js";
 import reportRouter from "./routes/reportRoutes.js";
 import adminRouter from "./routes/adminRoutes.js";
-import onboardingRouter from "./routes/onboardingRoutes.js";
+import onboardingDataRouter from "./routes/onboardingRoutes.js";
 import preferenceRouter from "./routes/preferenceRoutes.js";
 import conversationRouter from "./routes/conversationRoutes.js";
 import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
 
+// Parse JSON body FIRST before any other middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Simple request logger to help debug routing and OAuth callbacks in Vercel logs
 app.use((req, res, next) => {
   try {
-    console.log(`[REQ] ${req.method} ${req.url}`);
+    if (req.url.includes('/api/message/')) {
+      // Check if it's SSE (Clerk or MongoDB ID format)
+      const parts = req.url.split('/');
+      const userId = parts[parts.length - 1];
+      const isClerkId = userId.startsWith('user_');
+      const isMongoId = /^[a-f0-9]{24}$/.test(userId);
+      
+      if (isClerkId || isMongoId) {
+        console.log(`[REQ-SSE] ${req.method} ${req.url} - SSE REQUEST (${isClerkId ? 'Clerk' : 'MongoDB'})`);
+      } else {
+        console.log(`[REQ] ${req.method} ${req.url}`);
+      }
+    } else {
+      console.log(`[REQ] ${req.method} ${req.url}`);
+    }
   } catch (e) {
     console.log('Logger error', e);
   }
@@ -56,20 +75,137 @@ app.use((req, res, next) => {
 
 await connectDB();
 
-// CORS middleware - apply early
-app.use(cors({
-  origin: "*",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+// Initialize message expiration service (load and schedule disappearing messages)
+await initializeMessageExpirations();
+
+// Catch-all early logger for debugging SSE GET
+app.use((req, res, next) => {
+  if (req.url.includes('/api/message/') && req.method === 'GET') {
+    const userId = req.url.split('/').pop();
+    console.log('[DEBUG-SSE-GET] Intercepted GET for:', userId, 'writable:', res.writable, 'headers sent:', res.headersSent);
+  }
+  next();
+});
+
+// SSE routes - MUST come BEFORE CORS and all other middleware/routers
+// Handle SSE OPTIONS preflight
+app.options("/api/message/:userId", (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    
+    console.log('[SSE-ROUTE] OPTIONS /api/message/:userId received, userId:', userId);
+    
+    const isClerkUserId = userId.startsWith('user_');
+    const isMongoDbId = /^[a-f0-9]{24}$/.test(userId);
+    
+    if (!isClerkUserId && !isMongoDbId) {
+      console.log('[SSE-ROUTE] OPTIONS: Not a user ID format, passing to next middleware');
+      return next();
+    }
+    
+    console.log('[SSE-ROUTE] OPTIONS: ✅ Valid SSE preflight for userId:', userId);
+    try {
+      handleSSEOptions(req, res);
+      console.log('[SSE-ROUTE] OPTIONS: Response sent');
+    } catch (optErr) {
+      console.error('[SSE-ROUTE] OPTIONS: handleSSEOptions error:', optErr.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: optErr.message });
+      }
+    }
+  } catch (error) {
+    console.error('[SSE-ROUTE] ERROR in OPTIONS handler:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// Handle SSE GET requests
+app.get("/api/message/:userId", async (req, res, next) => {
+  const { userId } = req.params;
+  
+  console.log('[SSE-ROUTE-GET-ENTERED] GET request received');
+  console.log('[SSE-ROUTE-GET-ENTERED] userId param:', userId);
+  console.log('[SSE-ROUTE-GET-ENTERED] origin:', req.headers.origin);
+  console.log('[SSE-ROUTE-GET-ENTERED] response writable:', res.writable);
+  console.log('[SSE-ROUTE-GET-ENTERED] headers sent:', res.headersSent);
+  
+  try {
+    // Check if this is a valid user ID (either Clerk format "user_" or MongoDB format which is a 24-char hex string)
+    const isClerkUserId = userId.startsWith('user_');
+    const isMongoDbId = /^[a-f0-9]{24}$/.test(userId);
+    
+    console.log('[SSE-ROUTE-GET] Checking format - Clerk:', isClerkUserId, 'MongoDB:', isMongoDbId);
+    
+    if (!isClerkUserId && !isMongoDbId) {
+      console.log('[SSE-ROUTE] GET: Not a user ID format, passing to next middleware');
+      // Not an SSE request, let messageRouter handle it
+      return next();
+    }
+    
+    console.log('[SSE-ROUTE] GET: ✅ Valid SSE request for userId:', userId, '(format:', isClerkUserId ? 'Clerk' : 'MongoDB', ')');
+    console.log('[SSE-ROUTE] Response before handleSSEConnection - writable:', res.writable, 'headersSent:', res.headersSent);
+    
+    // Call SSE connection handler
+    console.log('[SSE-ROUTE] About to call handleSSEConnection...');
+    try {
+      await handleSSEConnection(req, res);
+      console.log('[SSE-ROUTE] handleSSEConnection completed successfully');
+    } catch (err) {
+      console.error('[SSE-ROUTE] ❌ handleSSEConnection threw:', err.message);
+      console.error('[SSE-ROUTE] Error code:', err.code);
+      console.error('[SSE-ROUTE] Error stack:', err.stack);
+      if (!res.headersSent && res.writable) {
+        console.log('[SSE-ROUTE] Sending 503 error response');
+        res.status(503).json({
+          success: false,
+          message: 'SSE Service Unavailable',
+          error: err.message
+        });
+      } else {
+        console.log('[SSE-ROUTE] Cannot send error - headers sent:', res.headersSent, 'writable:', res.writable);
+      }
+    }
+  } catch (error) {
+    console.error('[SSE-ROUTE] ERROR in GET handler:', error.message);
+    console.error('[SSE-ROUTE] Stack:', error.stack);
+    if (!res.headersSent && res.writable) {
+      res.status(503).json({
+        success: false,
+        message: 'SSE Service Unavailable',
+        error: error.message
+      });
+    }
+  }
+});
 
 // Health check route
 app.get("/", (req, res) => res.send("Server is running"));
 
-// Now apply middleware for remaining routes
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// SSE diagnostic endpoint
+app.get("/api/sse-test/:userId", (req, res) => {
+  const { userId } = req.params;
+  console.log('[SSE-DIAG] Test endpoint hit with userId:', userId);
+  
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'X-Accel-Buffering': 'no'
+  });
+  
+  res.write(': SSE test started\n\n');
+  
+  setTimeout(() => {
+    res.write('data: {"type": "test", "message": "Hello from SSE test"}\n\n');
+    setTimeout(() => {
+      res.write(': SSE test ending\n\n');
+      res.end();
+    }, 1000);
+  }, 500);
+});
 
 // Session configuration for Passport
 app.use(session({
@@ -102,26 +238,25 @@ app.use("/api/inngest", serve({
   signingKey: process.env.INNGEST_SIGNING_KEY
 }));
 
+// CORS middleware - apply AFTER SSE routes so they don't get intercepted
+app.use(cors({
+  origin: true, // Reflects the request's origin in CORS headers (allows any)
+  credentials: false, // Changed to false - SSE doesn't need credentials
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  preflightContinue: true // Continue to next handler after preflight
+}));
+
 // Auth routes (no authentication required)
 app.use('/api/auth', authRouter)
 
 // Other routes with authentication
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter) 
-app.use('/api/story', storyRouter) 
+app.use('/api/story', storyRouter)
 
+// Message routes - AFTER SSE route handlers to avoid conflicts
 app.use('/api/message', messageRouter)
-
-// SSE route for real-time messages - Match only user IDs (start with "user_")
-app.get("/api/message/:userId", (req, res) => {
-  const { userId } = req.params;
-  // Only handle SSE for actual user IDs, not API endpoints
-  if (!userId.startsWith('user_')) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  console.log("SSE route handler called for userId:", userId);
-  sseController(req, res);
-});
 
 app.use('/api/ai', aiRouter)
 app.use('/api/news', newsRouter)
@@ -133,20 +268,37 @@ app.use('/api/comment', commentRouter)
 app.use('/api/hashtag', hashtagRouter)
 app.use('/api/report', reportRouter)
 app.use('/api/admin', adminRouter)
-app.use('/api/user', onboardingRouter)
+app.use('/api/onboarding', onboardingDataRouter)
 app.use('/api/preferences', preferenceRouter)
 app.use('/api/conversations', conversationRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 
 // Global error handler to capture unexpected errors and return 500
+// NOTE: This will only be called if the response hasn't been started yet
+// SSE connections are safe because headers are sent before any errors can occur
 app.use((err, req, res, next) => {
   try {
-    console.error('[ERROR HANDLER] Unhandled error:', err.stack || err);
+    console.error('[ERROR HANDLER] Unhandled error for path:', req.path);
+    console.error('[ERROR HANDLER] Error:', err.stack || err);
+    if (req.path.includes('/api/message/')) {
+      console.error('[SSE ERROR DETECTED] Path contains /api/message/, error details:', {
+        path: req.path,
+        method: req.method,
+        statusCode: err.statusCode,
+        message: err.message
+      });
+    }
   } catch (e) {
     console.error('[ERROR HANDLER] Error while logging error:', e);
   }
-  res.status(500).json({ success: false, message: 'Internal Server Error' });
+  // Only send response if headers haven't been sent yet
+  if (!res.headersSent) {
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  } else {
+    // Headers already sent (e.g., for SSE), just close the connection
+    res.end();
+  }
 });
 
 // Log unhandled promise rejections and uncaught exceptions
@@ -155,6 +307,18 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 process.on('uncaughtException', (err) => {
   console.error('[FATAL] Uncaught Exception:', err);
+});
+
+// Clean up on shutdown
+process.on('SIGTERM', () => {
+  console.log('[SERVER] SIGTERM received, cleaning up...');
+  clearAllExpirationTimers();
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[SERVER] SIGINT received, cleaning up...');
+  clearAllExpirationTimers();
+  process.exit(0);
 });
 
 const PORT = process.env.PORT || 4000;

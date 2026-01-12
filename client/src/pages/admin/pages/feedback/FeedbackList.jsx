@@ -18,7 +18,7 @@ export const FeedbackList = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("admin_token");
-      const { data } = await api.get("/admin/feedback", {
+      const { data } = await api.get("/api/admin/feedback", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
