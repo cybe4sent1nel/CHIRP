@@ -308,7 +308,7 @@ export const markMessagesAsRead = async (req, res) => {
 // Get unread message counts per user
 export const getUnreadCounts = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const userId = getUserIdFromRequest(req);
 
     // Aggregate unread messages by sender
     const unreadCounts = await Message.aggregate([

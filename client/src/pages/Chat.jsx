@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { ImageIcon, SendHorizonal, Phone, Video, FileText, X, ArrowLeft, MoreVertical, Eye } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { ImageIcon, SendHorizonal, Phone, Video, FileText, X, ArrowLeft, MoreVertical, Eye, Ghost, Zap } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { useCustomAuth } from "../context/AuthContext";
-import { addMessage, fetchMessages, resetMessages, updateMessageStatus } from "../features/messages/messagesSlice";
+import { addMessage, fetchMessages, resetMessages, updateMessageStatus, confirmMessage } from "../features/messages/messagesSlice";
+import { setUploadLoading } from '../features/ui/uiSlice';
 import api from "../api/axios";
 import toast from 'react-hot-toast'
 import CallWindow from "../components/CallWindow";
@@ -44,18 +45,8 @@ const Chat = () => {
     const [userStatus, setUserStatus] = useState({ isOnline: false, lastSeen: null });
     const [showUserActions, setShowUserActions] = useState(false);
     const { userId: clerkUserId } = useAuth();
-    const { customUser } = useCustomAuth();  // FIX: AuthContext exports customUser, not user
-    const currentUserId = clerkUserId || customUser?._id; // Support both Clerk and custom auth
-
-    // Debug: Log auth status
-    console.log('[CHAT-INIT]', {
-        clerkUserId,
-        customUser,
-        currentUserId,
-        customUserId: customUser?._id,
-        authType: clerkUserId ? 'Clerk' : customUser ? 'Custom' : 'NONE'
-    });
-
+    const { user: customAuthUser } = useCustomAuth();
+    const currentUserId = clerkUserId || customAuthUser?._id; // Support both Clerk and custom auth
     const navigate = useNavigate();
     const [editingMedia, setEditingMedia] = useState(null);
     const [mediaType, setMediaType] = useState('image');
@@ -63,6 +54,9 @@ const Chat = () => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
     const [allowSave, setAllowSave] = useState(true);
+    const [hasDisappearingMessages, setHasDisappearingMessages] = useState(false);
+    const [disappearingMessageDuration, setDisappearingMessageDuration] = useState(24); // hours
+    const [recipientDisappearingMessages, setRecipientDisappearingMessages] = useState(false);
 
     const messagesEndRef = useRef(null);
 
@@ -132,7 +126,7 @@ const Chat = () => {
 
     const sendMessage = async (fileToSend = null) => {
         try {
-            // Only show cloud animation for file uploads, not text
+            // Only show upload UI when there is a file to send
             const fileData = fileToSend || image;
             if (fileData) {
                 setUploading(true);
@@ -168,6 +162,31 @@ const Chat = () => {
                 formData.append('allow_save', allowSave);
             }
 
+            // Optimistic message id for local UI
+            const clientId = `local_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+            const optimisticMessage = {
+                _id: clientId,
+                from_user_id: currentUserId,
+                to_user_id: userId,
+                text: text,
+                createdAt: new Date().toISOString(),
+                sending: true,
+                message_type: fileData ? 'media' : 'text'
+            };
+
+            // Mark optimistic message as outgoing to ensure UI treats it as user's own
+            optimisticMessage.outgoing = true;
+
+            // Dispatch optimistic message to show immediately
+            console.debug('[Chat] dispatch optimistic message', clientId, { fileData });
+            dispatch(addMessage(optimisticMessage));
+
+            // If we're sending a file, notify global UI to show upload loader
+            if (fileData) {
+                console.debug('[Chat] enabling global upload loader');
+                dispatch(setUploadLoading(true));
+            }
+
             const { data } = await api.post('/api/message/send', formData, {
                 headers: { Authorization: `Bearer ${token}` },
                 onUploadProgress: (progressEvent) => {
@@ -176,19 +195,39 @@ const Chat = () => {
                 },
             })
             if (data.success) {
+                // Replace optimistic message with server-provided message
+                dispatch(confirmMessage({ clientId, serverMessage: data.message }));
                 setText('')
                 setImage(null)
                 setSendAsViewOnce(false);
                 setAllowSave(true);
-                dispatch(addMessage(data.message))
             } else {
                 throw new Error(data.message)
             }
         } catch (error) {
             toast.error(error.message)
         } finally {
-            setUploading(false);
-            setUploadProgress(0);
+            // Only clear upload UI if it was active
+            if (uploading) {
+                setUploading(false);
+                setUploadProgress(0);
+            }
+            // Always clear the global upload loader to avoid stale UI state.
+            // If another upload is legitimately in progress elsewhere this will be harmless
+            // because that other flow should re-enable it.
+            try {
+                console.debug('[Chat] clearing global upload loader');
+                dispatch(setUploadLoading(false));
+            } catch (e) {
+                console.debug('Failed to clear global upload loader', e?.message || e);
+            }
+
+            // As a safety net, ensure loader hides after 5s in case of stuck state
+            try {
+                setTimeout(() => {
+                    try { console.debug('[Chat] fallback clear global upload loader (timeout)'); dispatch(setUploadLoading(false)); } catch (e) { /* ignore */ }
+                }, 5000);
+            } catch (e) { /* ignore */ }
         }
     };
 
@@ -388,6 +427,35 @@ const Chat = () => {
         }
     }, [connections, userId])
 
+    // Fetch recipient's disappearing messages setting
+    useEffect(() => {
+        const fetchRecipientSettings = async () => {
+            try {
+                let token = await getToken();
+                if (!token && customToken) {
+                    token = customToken;
+                }
+                
+                if (token) {
+                    const { data } = await api.get(`/api/chat-settings/`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (data.success && data.settings?.security?.disappearing_messages_default?.enabled) {
+                        setRecipientDisappearingMessages(true);
+                    }
+                }
+            } catch (error) {
+                // Chat settings endpoint may not be available, ignore error
+                // The chat will still work without recipient settings
+                console.debug('Chat settings not available:', error.message);
+            }
+        };
+        
+        if (userId) {
+            fetchRecipientSettings();
+        }
+    }, [userId]);
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behaviour: "smooth" });
     }, [messages]);
@@ -489,8 +557,8 @@ const Chat = () => {
                         )}
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-5 md:px-10">
-                    <div className="max-w-4xl mx-auto h-full">
+                <div className="p-5 md:px-10 h-full overflow-y-scroll">
+                    <div className="max-w-4xl mx-auto">
                         {replyToMessage && (
                             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded flex items-center justify-between">
                                 <div>
@@ -505,20 +573,43 @@ const Chat = () => {
                         {messages
                             .toSorted((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
                             .map((message, index, arr) => {
-                                // Determine if message is from current user
-                                const isOwnMessage = message.from_user_id?._id === currentUserId ||
-                                    message.from_user_id === currentUserId ||
-                                    message.sender_id === currentUserId;
+                                    // Normalize IDs to reliably compare shapes (string vs object)
+                                    const normalizeId = (val) => {
+                                        if (!val) return null;
+                                        if (typeof val === 'string') return val;
+                                        if (typeof val === 'object') return val._id || val.id || null;
+                                        return null;
+                                    }
 
-                                // Debug: Log first 5 messages
-                                if (index < 5) {
-                                    console.log(`[MSG-${index}] ${message.text?.substring(0, 15)}...`, {
-                                        from_user_id: message.from_user_id,
-                                        sender_id: message.sender_id,
-                                        currentUserId,
-                                        isOwnMessage
-                                    });
-                                }
+                                    // Try to resolve current user id from multiple places (Clerk, custom auth, localStorage fallback)
+                                    let normCurrent = normalizeId(currentUserId);
+                                    if (!normCurrent) {
+                                        try {
+                                            const raw = localStorage.getItem('customUser');
+                                            if (raw) {
+                                                try {
+                                                    const parsed = JSON.parse(raw);
+                                                    normCurrent = normalizeId(parsed?._id || parsed?.id || parsed?.userId || parsed?.uid) || normCurrent;
+                                                } catch (e) {
+                                                    // fallback: try to extract _id string
+                                                    const m = raw.match(/"_id"\s*:\s*"([^"]+)"/);
+                                                    if (m) normCurrent = m[1];
+                                                }
+                                            }
+                                        } catch (e) {
+                                            // ignore
+                                        }
+                                        // last resort: check a few known localStorage keys
+                                        if (!normCurrent) {
+                                            normCurrent = localStorage.getItem('customUserId') || localStorage.getItem('clerk_user_id') || localStorage.getItem('clerk.userId') || null;
+                                        }
+                                    }
+                                    const normFrom = normalizeId(message.from_user_id) || normalizeId(message.sender_id) || normalizeId(message.from);
+
+                                    // Determine if message is from current user
+                                    const isOwnMessage = message.outgoing === true || (normFrom && normCurrent && normFrom === normCurrent);
+
+                                    console.debug('[Chat] message ownership', { _id: message._id, outgoing: message.outgoing, normFrom, normCurrent, isOwnMessage });
 
                                 // Check if we need to show date separator
                                 const currentDate = new Date(message.createdAt).toLocaleDateString('en-US', {
@@ -554,7 +645,7 @@ const Chat = () => {
                                 };
 
                                 return (
-                                    <div key={message._id || index}>
+                                    <React.Fragment key={message._id || message.id || index}>
                                         {showDateSeparator && (
                                             <div className="flex justify-center my-4">
                                                 <span className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-xs font-medium">
@@ -563,8 +654,9 @@ const Chat = () => {
                                             </div>
                                         )}
                                         <div
-                                            className={`flex items-end gap-2 w-full ${isOwnMessage ? "justify-end" : "justify-start"
-                                                } group mb-2 px-2`}
+                                            
+                                            className={`flex items-end gap-3 w-full ${isOwnMessage ? "justify-end" : "justify-start"
+                                                } group mb-4 px-6`}
                                         >
                                             {/* Message Actions - Show on hover beside message */}
                                             {!isOwnMessage && (
@@ -590,10 +682,16 @@ const Chat = () => {
 
                                             {/* Message Bubble */}
                                             <div
-                                                className={`p-3 text-sm max-w-sm rounded-2xl shadow-sm ${isOwnMessage
-                                                    ? "rounded-br-none bg-[#d9f7cd] text-gray-800 ml-auto"
-                                                    : "rounded-bl-none bg-white text-slate-700 mr-auto border border-gray-200 shadow-md"
+                                                className={`px-4 py-3 text-sm max-w-sm rounded-3xl shadow-sm ${isOwnMessage
+                                                    ? "rounded-br-none bg-[#d9f7cd] text-gray-800"
+                                                    : "rounded-bl-none bg-white text-slate-700 border border-gray-200 shadow-md"
                                                     }`}
+                                                onContextMenu={(e) => {
+                                                    if (message.view_once) {
+                                                        e.preventDefault();
+                                                        toast.error('Screenshots not allowed for view-once messages');
+                                                    }
+                                                }}
                                             >
                                                 {/* Reply Preview */}
                                                 {message.reply_to && (
@@ -756,6 +854,14 @@ const Chat = () => {
                                                     )
                                                 )}
 
+                                                {/* View Once Badge */}
+                                                {message.view_once && (
+                                                    <div className="flex items-center gap-1 mt-2 text-xs bg-red-100/50 text-red-700 px-2 py-1 rounded-full w-fit">
+                                                        <Eye size={12} />
+                                                        <span>View once</span>
+                                                    </div>
+                                                )}
+
                                                 {/* Message Time and Status */}
                                                 <div className="flex items-center justify-end gap-1 mt-2 text-xs">
                                                     <span className={isOwnMessage ? 'text-gray-600' : 'text-gray-500'}>
@@ -789,7 +895,7 @@ const Chat = () => {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </React.Fragment>
                                 )
                             })}
                         <div ref={messagesEndRef} />
@@ -909,6 +1015,20 @@ const Chat = () => {
                             onSendVoiceNote={sendVoiceNote}
                             disabled={false}
                         />
+                        
+                        {/* View Once Button */}
+                        <button
+                            onClick={() => setSendAsViewOnce(!sendAsViewOnce)}
+                            title={sendAsViewOnce ? "View-once enabled" : "Send as view-once"}
+                            className={`p-2 rounded-full transition-all ${
+                                sendAsViewOnce
+                                    ? "bg-purple-100 text-purple-600"
+                                    : "text-gray-400 hover:text-gray-600"
+                            }`}
+                        >
+                            <Eye size={18} />
+                        </button>
+
                         <button
                             onClick={sendMessage}
                             className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-800 active:scale-95 cursor-pointer text-white p-2 rounded-full"
@@ -951,12 +1071,8 @@ const Chat = () => {
                         onCancel={() => setEditingMedia(null)}
                     />
                 )}
-                {/* Upload Progress Loader */}
-                <CloudUploadLoader
-                    isLoading={uploading}
-                    progress={uploadProgress}
-                    showProgress={true}
-                />      </div>
+                {/* Upload Progress Loader (removed — use global loader in App.jsx) */}
+                </div>
         )
     );
 };

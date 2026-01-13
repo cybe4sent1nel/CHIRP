@@ -15,13 +15,23 @@ if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Publishable Key");
 }
 
-// Register service worker for offline support
+// Register service worker for offline support (unregister old, then register fresh)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then((registration) => {
-    console.log('Service Worker registered:', registration);
-  }).catch((error) => {
-    console.log('Service Worker registration failed:', error);
-  });
+  const registerFreshServiceWorker = async () => {
+    try {
+      // Unregister all existing service workers to avoid stale handlers
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((reg) => reg.unregister()));
+      console.log('[SW] All existing service workers unregistered. Re-registering fresh one...');
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('[SW] Fresh Service Worker registered:', registration);
+    } catch (error) {
+      console.log('[SW] Service Worker registration failed:', error);
+    }
+  };
+
+  registerFreshServiceWorker();
 }
 
 // Debug routing/redirects

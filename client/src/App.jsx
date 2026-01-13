@@ -49,15 +49,23 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUser } from "./features/user/userSlice";
 import { fetchConnections, updateUserStatus } from "./features/connections/connectionSlice.js";
-import { addMessage } from "./features/messages/messagesSlice.js";
+import { addMessage, updateMessageStatus } from "./features/messages/messagesSlice.js";
 import toast from 'react-hot-toast'
 import Notification from "./components/Notification";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import ClickSpark from "./components/ClickSpark";
 
-// Fetch error interceptor - catches all network errors
+// Fetch error interceptor - catches all network errors (except telemetry)
 const originalFetch = window.fetch;
 window.fetch = function(...args) {
+  const [url] = args;
+  
+  // Skip error handling for telemetry/ingest services to avoid noisy logs
+  const isIngestCall = typeof url === 'string' && url.includes('ingest');
+  if (isIngestCall) {
+    return originalFetch.apply(this, args);
+  }
+  
   return originalFetch.apply(this, args)
     .catch(error => {
       // Dispatch custom event for network errors
@@ -92,6 +100,10 @@ const App = () => {
   const pathnameRef = useRef(pathname);
   const isLoading = useSelector((state) => state.ui?.isLoading || false);
   const isUploading = useSelector((state) => state.ui?.isUploading || false);
+
+  useEffect(() => {
+    console.debug('[App] Global isUploading changed:', isUploading);
+  }, [isUploading]);
   const isOnline = useNetworkStatus();
   const [showNetworkError, setShowNetworkError] = useState(!isOnline);
 
@@ -270,10 +282,17 @@ const App = () => {
           console.log('[SSE] Attempting SSE connection to:', sseUrl);
           console.log('[SSE] Frontend origin:', window.location.origin);
           
+          // Validate server is reachable before creating EventSource
+          // Use the public root path ('/') which does not require auth to avoid Clerk rejecting the probe
+          fetch(baseUrl + '/', { method: 'GET' })
+            .catch(err => {
+              console.warn('[SSE] Server connectivity check failed, will attempt SSE anyway:', err.message);
+            });
+          
           // Create EventSource
           // Note: EventSource doesn't support withCredentials natively
           // CORS headers from server allow the origin
-          eventSource = new EventSource(sseUrl);
+          eventSource = new EventSource(sseUrl, { withCredentials: false });
 
           eventSource.onopen = () => {
             console.log('[SSE] ✅ Connection established successfully');
@@ -312,20 +331,54 @@ const App = () => {
               
               // Handle message status updates (delivered/read)
               if (data.type === 'messageStatus') {
-                console.log('Message status update:', data.messageId, data.status);
-                // Dispatch custom event for Chat component to handle
-                window.dispatchEvent(new CustomEvent('messageStatusChange', { detail: data }));
+                // Normalize message id shapes
+                const normalizeId = (val) => {
+                  if (!val) return null;
+                  if (typeof val === 'string') return val;
+                  if (typeof val === 'object') return val._id || val.id || null;
+                  return null;
+                }
+
+                const normalizedMessageId = normalizeId(data.messageId) || normalizeId(data.id) || normalizeId(data._id);
+                console.log('Message status update:', normalizedMessageId, data.status);
+
+                // Update Redux immediately so UI reflects status globally
+                if (normalizedMessageId) {
+                  dispatch(updateMessageStatus({ messageId: normalizedMessageId, status: data.status }));
+                }
+
+                // Dispatch custom event for Chat component to handle as well
+                window.dispatchEvent(new CustomEvent('messageStatusChange', { detail: { ...data, messageId: normalizedMessageId } }));
                 return;
               }
 
               // Handle regular messages
               const message = data;
-              if(pathnameRef.current === ('/messages/' + message.from_user_id._id)){
-                dispatch(addMessage(message))
+
+              // Normalize sender and recipient IDs - messages can arrive with nested objects or plain strings
+              const normalizeId = (val) => {
+                if (!val) return null;
+                if (typeof val === 'string') return val;
+                if (typeof val === 'object') return val._id || val.id || null;
+                return null;
+              }
+
+              const senderId = normalizeId(message.from_user_id) || normalizeId(message.sender_id) || normalizeId(message.from);
+              const recipientId = normalizeId(message.to_user_id) || normalizeId(message.recipient_id) || normalizeId(message.to);
+
+              const chatPathWithSender = '/messages/' + senderId;
+              const chatPathWithRecipient = '/messages/' + recipientId;
+
+              // Ensure message has a consistent id field
+              message._id = message._id || message.id || null;
+
+              // If either the chat with sender or chat with recipient is currently open, add the message directly
+              if (pathnameRef.current === chatPathWithSender || pathnameRef.current === chatPathWithRecipient) {
+                dispatch(addMessage(message));
               } else {
                 toast.custom((t) => {
                   <Notification t={t} message={message} />
-                }, {position: "bottom-right"})
+                }, { position: "bottom-right" })
               }
               // Notify that a new message was received
               window.dispatchEvent(new CustomEvent('messageReceived'));
@@ -360,7 +413,8 @@ const App = () => {
               }, delay);
             } else {
               console.error('[SSE] ❌ Max SSE reconnection attempts reached');
-              toast.error('Connection lost. Please refresh the page.');
+              // Don't show toast for transient connection issues
+              console.warn('[SSE] Consider checking if server is running on:', import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || window.location.origin);
             }
           }
         } catch (err) {

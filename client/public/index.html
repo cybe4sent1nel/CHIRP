@@ -179,28 +179,36 @@
       observer.observe(document.getElementById('root'), { childList: true });
 
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/service-worker.js')
-            .then((registration) => {
-              console.log('SW registered:', registration);
-              
-              // Check online/offline status and navigate to offline page if needed
-              window.addEventListener('offline', () => {
-                if (window.location.pathname !== '/no-internet') {
-                  window.location.href = '/no-internet';
-                }
-              });
-              
-              window.addEventListener('online', () => {
-                if (window.location.pathname === '/no-internet') {
-                  window.location.href = '/';
-                }
-              });
-            })
-            .catch((error) => {
-              console.log('SW registration failed:', error);
+        window.addEventListener('load', async () => {
+          try {
+            // Unregister all existing service workers
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+              console.log('Unregistering old SW:', registration);
+              await registration.unregister();
+            }
+            
+            // Register fresh service worker
+            const registration = await navigator.serviceWorker.register('/sw.js', {
+              scope: '/'
             });
+            console.log('Fresh SW registered:', registration);
+            
+            // Check online/offline status and navigate to offline page if needed
+            window.addEventListener('offline', () => {
+              if (window.location.pathname !== '/no-internet') {
+                window.location.href = '/no-internet';
+              }
+            });
+            
+            window.addEventListener('online', () => {
+              if (window.location.pathname === '/no-internet') {
+                window.location.href = '/';
+              }
+            });
+          } catch (error) {
+            console.log('SW registration failed:', error);
+          }
         });
       }
     </script>

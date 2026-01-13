@@ -41,6 +41,7 @@ import adminRouter from "./routes/adminRoutes.js";
 import onboardingDataRouter from "./routes/onboardingRoutes.js";
 import preferenceRouter from "./routes/preferenceRoutes.js";
 import conversationRouter from "./routes/conversationRoutes.js";
+import chatSettingsRouter from "./routes/chatSettingsRoutes.js";
 import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
@@ -48,6 +49,18 @@ const app = express();
 // Parse JSON body FIRST before any other middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// CORS middleware - apply globally so API routes (including /api/message/*)
+// always receive CORS headers. This is safe for SSE endpoints as well
+// because they need the appropriate CORS response headers too.
+app.use(cors({
+  origin: true, // Reflects the request's origin in CORS headers (allows any)
+  credentials: true, // Allow credentials for custom auth tokens
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Content-Type"],
+  preflightContinue: false // Send CORS headers immediately, don't continue to next handler
+}));
 
 // Simple request logger to help debug routing and OAuth callbacks in Vercel logs
 app.use((req, res, next) => {
@@ -63,6 +76,12 @@ app.use((req, res, next) => {
         console.log(`[REQ-SSE] ${req.method} ${req.url} - SSE REQUEST (${isClerkId ? 'Clerk' : 'MongoDB'})`);
       } else {
         console.log(`[REQ] ${req.method} ${req.url}`);
+        if (req.method !== 'OPTIONS') {
+          console.log(`[REQ-DETAIL] Headers:`, {
+            authorization: req.headers.authorization ? 'present' : 'MISSING',
+            contentType: req.headers['content-type']
+          });
+        }
       }
     } else {
       console.log(`[REQ] ${req.method} ${req.url}`);
@@ -86,6 +105,10 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Message routes - MUST come BEFORE SSE route handlers
+// This ensures /api/message/unread-counts and other non-SSE routes are handled first
+app.use('/api/message', messageRouter);
 
 // SSE routes - MUST come BEFORE CORS and all other middleware/routers
 // Handle SSE OPTIONS preflight
@@ -238,14 +261,7 @@ app.use("/api/inngest", serve({
   signingKey: process.env.INNGEST_SIGNING_KEY
 }));
 
-// CORS middleware - apply AFTER SSE routes so they don't get intercepted
-app.use(cors({
-  origin: true, // Reflects the request's origin in CORS headers (allows any)
-  credentials: false, // Changed to false - SSE doesn't need credentials
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  preflightContinue: true // Continue to next handler after preflight
-}));
+// (CORS is applied earlier to ensure API routes include CORS headers)
 
 // Auth routes (no authentication required)
 app.use('/api/auth', authRouter)
@@ -254,9 +270,6 @@ app.use('/api/auth', authRouter)
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter) 
 app.use('/api/story', storyRouter)
-
-// Message routes - AFTER SSE route handlers to avoid conflicts
-app.use('/api/message', messageRouter)
 
 app.use('/api/ai', aiRouter)
 app.use('/api/news', newsRouter)
@@ -271,6 +284,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/onboarding', onboardingDataRouter)
 app.use('/api/preferences', preferenceRouter)
 app.use('/api/conversations', conversationRouter)
+app.use('/api/chat-settings', chatSettingsRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 

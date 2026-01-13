@@ -84,7 +84,8 @@ const CustomAuth = () => {
     }
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || 'http://localhost:4000';
+  // Default to empty so frontend uses the dev-server proxy (`/api`) in development
+  const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || '';
 
   // Clear invalid auth data on mount only
   useEffect(() => {
@@ -406,7 +407,7 @@ const CustomAuth = () => {
   };
 
   const handleGoogleLogin = () => {
-    const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || 'http://localhost:4000';
+    const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BASEURL || '';
     // Ensure we don't double /api if baseUrl already ends with /api
     const endpoint = baseUrl.endsWith('/api') ? `${baseUrl}/auth/google` : `${baseUrl}/api/auth/google`;
     window.location.href = endpoint;
