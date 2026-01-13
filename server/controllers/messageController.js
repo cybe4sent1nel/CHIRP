@@ -188,12 +188,19 @@ export const sendMessage = async (req, res) => {
 
     const sent = sendMessageToUser(to_user_id, messageWithUserData);
     
+    console.log(`[MSG] Created message _id=${message._id} sender=${userId} recipient=${to_user_id} delivered=${isRecipientOnline} createdAt=${message.createdAt}`);
+    
     if (sent) {
-      console.log(`[MSG] Message delivered to user ${to_user_id} via SSE`);
+      console.log(`[MSG] Message ${message._id} delivered to user ${to_user_id} via SSE`);
       // Send delivery confirmation to sender
-      sendDeliveryConfirmation(userId, message._id);
+      try {
+        sendDeliveryConfirmation(String(userId), message._id);
+      } catch (e) {
+        console.error('[MSG] sendDeliveryConfirmation failed:', e && e.message ? e.message : e);
+      }
     } else {
-      console.log(`[MSG] User ${to_user_id} not connected, message queued for delivery`);
+      const queuedSize = (sseManager && sseManager.messageQueue && sseManager.messageQueue.get(String(to_user_id))) ? sseManager.messageQueue.get(String(to_user_id)).length : 0;
+      console.log(`[MSG] User ${to_user_id} not connected, message queued for delivery (queueSize=${queuedSize})`);
     }
   } catch (error) {
     console.log(error);
@@ -292,7 +299,11 @@ export const markMessagesAsRead = async (req, res) => {
       }).select('_id');
       
       readMessages.forEach(msg => {
-        sendReadReceipt(from_user_id, msg._id);
+        try {
+          sendReadReceipt(String(from_user_id), msg._id);
+        } catch (e) {
+          console.error('[MSG] sendReadReceipt failed for', from_user_id, e && e.message ? e.message : e);
+        }
       });
       
       console.log(`Sent read receipts for ${readMessages.length} messages to user ${from_user_id}`);
@@ -566,7 +577,7 @@ export const markMessageAsViewed = async (req, res) => {
     // Notify sender about view status via SSE
     const senderId = message.sender_id || message.from_user_id;
     if (senderId) {
-      sendMessageToUser(senderId, {
+      sendMessageToUser(String(senderId), {
         type: 'messageViewed',
         messageId: message._id,
         viewedBy: userId,

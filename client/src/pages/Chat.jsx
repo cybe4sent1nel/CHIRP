@@ -22,6 +22,7 @@ import EmojiGifPicker from "../components/EmojiGifPicker";
 import MediaEditor from "../components/MediaEditor";
 import CloudUploadLoader from "../components/CloudUploadLoader";
 import ViewOnceMedia from "../components/ViewOnceMedia";
+import LinkPreview from "../components/LinkPreviewClean";
 
 const Chat = () => {
     const { messages } = useSelector((state) => state.messages);
@@ -54,6 +55,7 @@ const Chat = () => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
     const [allowSave, setAllowSave] = useState(true);
+    const [linkPreviewUrl, setLinkPreviewUrl] = useState(null);
     const [hasDisappearingMessages, setHasDisappearingMessages] = useState(false);
     const [disappearingMessageDuration, setDisappearingMessageDuration] = useState(24); // hours
     const [recipientDisappearingMessages, setRecipientDisappearingMessages] = useState(false);
@@ -405,6 +407,23 @@ const Chat = () => {
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 // Notify other components that messages have been read
+                // Update local Redux state: mark messages from this chat as read so UI updates immediately
+                try {
+                    messages.forEach(msg => {
+                        const normalizeId = (val) => {
+                            if (!val) return null;
+                            if (typeof val === 'string') return val;
+                            if (typeof val === 'object') return val._id || val.id || null;
+                            return null;
+                        };
+                        const fromId = normalizeId(msg.from_user_id) || normalizeId(msg.sender_id) || normalizeId(msg.from);
+                        if (fromId === userId) {
+                            dispatch(updateMessageStatus({ messageId: msg._id || msg.id, status: 'read' }));
+                        }
+                    });
+                } catch (e) {
+                    console.debug('Failed to optimistically update read statuses', e?.message || e);
+                }
                 window.dispatchEvent(new CustomEvent('messagesRead'));
             } catch (error) {
                 console.error('Failed to mark messages as read:', error);
@@ -516,6 +535,15 @@ const Chat = () => {
                                 <UserStatus isOnline={userStatus.isOnline} lastSeen={userStatus.lastSeen} />
                             </div>
                         </div>
+
+                        {/* Global link preview shown below composer to avoid overflowing the input row */}
+                        {linkPreviewUrl && (
+                            <div className="max-w-4xl mx-auto px-4">
+                                <div className="max-w-xl mx-auto mt-2">
+                                    <LinkPreview url={linkPreviewUrl} />
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2 relative">
                         <button
@@ -561,11 +589,13 @@ const Chat = () => {
                     <div className="max-w-4xl mx-auto">
                         {replyToMessage && (
                             <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs text-blue-600 font-semibold">Replying to</p>
+                                <div className="flex-1">
+                                    <div className="text-xs text-blue-600 font-semibold">
+                                        Replying to {replyToMessage.user_full_name || replyToMessage.sender_name || replyToMessage.from_user_id || 'a message'}
+                                    </div>
                                     <p className="text-sm text-gray-700 truncate">{replyToMessage.text || 'Media message'}</p>
                                 </div>
-                                <button onClick={() => setReplyToMessage(null)}>
+                                <button onClick={() => setReplyToMessage(null)} className="ml-3">
                                     <X size={18} className="text-gray-500" />
                                 </button>
                             </div>
@@ -601,7 +631,7 @@ const Chat = () => {
                                         }
                                         // last resort: check a few known localStorage keys
                                         if (!normCurrent) {
-                                            normCurrent = localStorage.getItem('customUserId') || localStorage.getItem('clerk_user_id') || localStorage.getItem('clerk.userId') || null;
+                                            normCurrent = localStorage.getItem('customUserId') || localStorage.getItem('clerk_user_id') || localStorage.getItem('clerk.userId') || localStorage.getItem('currentUserId') || null;
                                         }
                                     }
                                     const normFrom = normalizeId(message.from_user_id) || normalizeId(message.sender_id) || normalizeId(message.from);
@@ -788,6 +818,8 @@ const Chat = () => {
                                                         <AudioPlayer
                                                             src={message.message_url || message.media_url}
                                                             senderName={message.sender_name || message.from_user_id?.full_name || user?.full_name || "Unknown"}
+                                                            isOwnMessage={isOwnMessage}
+                                                            message={message}
                                                         />
                                                     </div>
                                                 )}
@@ -813,7 +845,7 @@ const Chat = () => {
                                                     </a>
                                                 )}
 
-                                                {/* Text */}
+                                                {/* Text with Link Preview support */}
                                                 {message.text && (
                                                     editingMessage?._id === message._id ? (
                                                         <div className="space-y-2">
@@ -850,7 +882,18 @@ const Chat = () => {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <p className="mt-1 break-words">{message.text}</p>
+                                                        <div>
+                                                            <p className="mt-1 break-words whitespace-pre-wrap">{message.text}</p>
+                                                            {/* Detect first URL in text and render preview */}
+                                                            {(() => {
+                                                                const urlRegex = /(https?:\/\/[^\s]+)/i;
+                                                                const match = (message.text || '').match(urlRegex);
+                                                                if (match && match[0]) {
+                                                                    return <LinkPreview url={match[0]} />;
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                        </div>
                                                     )
                                                 )}
 
@@ -865,7 +908,7 @@ const Chat = () => {
                                                 {/* Message Time and Status */}
                                                 <div className="flex items-center justify-end gap-1 mt-2 text-xs">
                                                     <span className={isOwnMessage ? 'text-gray-600' : 'text-gray-500'}>
-                                                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        {new Date(message.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                                                     </span>
                                                     {isOwnMessage && (
                                                         <MessageStatus message={message} />
@@ -975,66 +1018,81 @@ const Chat = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
-                        <EmojiGifPicker
-                            onEmojiSelect={handleEmojiSelect}
-                            onGifSelect={handleGifSelect}
-                        />
-                        <input
-                            type="text"
-                            className="flex-1 outline-none text-slate-700"
-                            placeholder="Type a message..."
-                            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                            onChange={(e) => {
-                                setText(e.target.value);
-                                // Typing indicator logic
-                                if (typingTimeout) clearTimeout(typingTimeout);
-                                const timeout = setTimeout(() => {
-                                    // Send typing status to server
-                                }, 2000);
-                                setTypingTimeout(timeout);
-                            }}
-                            value={text}
-                        />
-                        <label htmlFor="file" className="cursor-pointer">
-                            <ImageIcon className="size-7 text-gray-400 hover:text-gray-600" />
-                            <input
-                                type="file"
-                                id="file"
-                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
-                                hidden
-                                onChange={handleMediaSelect}
-                            />
-                        </label>
-                        <SpeechToText
-                            onSend={(transcribedText) => {
-                                setText(transcribedText);
-                            }}
-                        />
-                        <VoiceRecorder
-                            onSendVoiceNote={sendVoiceNote}
-                            disabled={false}
-                        />
-                        
-                        {/* View Once Button */}
-                        <button
-                            onClick={() => setSendAsViewOnce(!sendAsViewOnce)}
-                            title={sendAsViewOnce ? "View-once enabled" : "Send as view-once"}
-                            className={`p-2 rounded-full transition-all ${
-                                sendAsViewOnce
-                                    ? "bg-purple-100 text-purple-600"
-                                    : "text-gray-400 hover:text-gray-600"
-                            }`}
-                        >
-                            <Eye size={18} />
-                        </button>
+                    <div className="w-full max-w-xl mx-auto mb-5">
+                        <div className="flex flex-col bg-white border border-gray-200 shadow rounded-2xl overflow-hidden">
+                            <div className="flex items-center gap-3 px-4 py-2">
+                                <EmojiGifPicker
+                                    onEmojiSelect={handleEmojiSelect}
+                                    onGifSelect={handleGifSelect}
+                                />
+                                <input
+                                    type="text"
+                                    className="flex-1 outline-none text-slate-700"
+                                    placeholder="Type a message..."
+                                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setText(val);
+                                        // Typing indicator logic
+                                        if (typingTimeout) clearTimeout(typingTimeout);
+                                        const timeout = setTimeout(() => {
+                                            // Send typing status to server
+                                        }, 2000);
+                                        setTypingTimeout(timeout);
 
-                        <button
-                            onClick={sendMessage}
-                            className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-800 active:scale-95 cursor-pointer text-white p-2 rounded-full"
-                        >
-                            <SendHorizonal size={18} />
-                        </button>
+                                        // Detect first URL and show preview
+                                        const m = val.match(/https?:\/\/\S+/i);
+                                        if (m && m[0]) setLinkPreviewUrl(m[0]);
+                                        else setLinkPreviewUrl(null);
+                                    }}
+                                    value={text}
+                                />
+
+                                <label htmlFor="file" className="cursor-pointer">
+                                    <ImageIcon className="size-7 text-gray-400 hover:text-gray-600" />
+                                    <input
+                                        type="file"
+                                        id="file"
+                                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                                        hidden
+                                        onChange={handleMediaSelect}
+                                    />
+                                </label>
+                                <SpeechToText
+                                    onSend={(transcribedText) => {
+                                        setText(transcribedText);
+                                    }}
+                                />
+                                <VoiceRecorder
+                                    onSendVoiceNote={sendVoiceNote}
+                                    disabled={false}
+                                />
+                                <button
+                                    onClick={() => setSendAsViewOnce(!sendAsViewOnce)}
+                                    title={sendAsViewOnce ? "View-once enabled" : "Send as view-once"}
+                                    className={`p-2 rounded-full transition-all ${
+                                        sendAsViewOnce
+                                            ? "bg-purple-100 text-purple-600"
+                                            : "text-gray-400 hover:text-gray-600"
+                                    }`}
+                                >
+                                    <Eye size={18} />
+                                </button>
+                                <button
+                                    onClick={sendMessage}
+                                    className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-800 active:scale-95 cursor-pointer text-white p-2 rounded-full"
+                                >
+                                    <SendHorizonal size={18} />
+                                </button>
+                            </div>
+
+                            {/* Link preview rendered inside composer; input area will expand vertically */}
+                            {linkPreviewUrl && (
+                                <div className="px-3 pb-3">
+                                    <LinkPreview url={linkPreviewUrl} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

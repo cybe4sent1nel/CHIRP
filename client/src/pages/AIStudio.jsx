@@ -574,10 +574,7 @@ const AIStudio = () => {
                     )}
                   </div>
                       <p className="text-xs text-gray-400 mt-2">
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(message.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                       </p>
                     </div>
                   </div>
@@ -590,10 +587,7 @@ const AIStudio = () => {
                         <p className="text-sm leading-relaxed break-words">{message.content}</p>
                       </div>
                       <p className="text-xs text-gray-400 mt-2">
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(message.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                       </p>
                     </div>
                     <div className="flex-shrink-0 mt-1">
@@ -736,7 +730,7 @@ const AIStudio = () => {
                   <button
                     type="submit"
                     disabled={aiLoading || !input.trim()}
-                    className="bg-gray-900 hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg p-2.5 transition-all active:scale-95 flex items-center justify-center min-w-[42px] min-h-[42px]"
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg p-2.5 transition-all active:scale-95 flex items-center justify-center min-w-[42px] min-h-[42px]"
                     aria-label={aiLoading ? "Sending message" : "Send message"}
                   >
                     {aiLoading ? (

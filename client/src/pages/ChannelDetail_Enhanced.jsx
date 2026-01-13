@@ -26,6 +26,7 @@ import AudioPlayer from "../components/AudioPlayer";
 import VideoPlayer from "../components/VideoPlayer";
 import EmojiGifPicker from "../components/EmojiGifPicker";
 import MediaEditor from "../components/MediaEditor";
+import LinkPreview from "../components/LinkPreviewClean";
 
 const ChannelDetail = () => {
   const { channelId } = useParams();
@@ -561,12 +562,12 @@ const ChannelDetail = () => {
                       }
                     />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-gray-900">
                           {msg.user_id.full_name}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {new Date(msg.createdAt).toLocaleTimeString()}
+                          {new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                         </span>
                         {msg.is_pinned && (
                           <Pin className="w-3 h-3 text-yellow-600" />
@@ -580,6 +581,8 @@ const ChannelDetail = () => {
                           <AudioPlayer
                             src={msg.content}
                             fileName={msg.file_name || "voice-note.webm"}
+                            isOwnMessage={user && msg.user_id && msg.user_id._id === user._id}
+                            message={msg}
                           />
                         )}
 
@@ -620,9 +623,19 @@ const ChannelDetail = () => {
                           />
                         )}
 
-                        {/* Text */}
+                        {/* Text with LinkPreview support */}
                         {msg.message_type === "text" && (
-                          <p className="text-sm text-gray-900">{msg.content}</p>
+                          <div>
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{msg.content}</p>
+                            {(() => {
+                              const urlRegex = /(https?:\/\/[^\s]+)/i;
+                              const match = (msg.content || '').match(urlRegex);
+                              if (match && match[0]) {
+                                return <LinkPreview url={match[0]} />;
+                              }
+                              return null;
+                            })()}
+                          </div>
                         )}
                       </div>
 

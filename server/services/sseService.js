@@ -19,27 +19,28 @@ class SSEConnectionManager {
      * Register a new SSE connection for a user
      */
     registerConnection(userId, res) {
-        console.log(`[SSE] Registering connection for user: ${userId}`);
+      const uid = String(userId);
+      console.log(`[SSE] Registering connection for user: ${uid}`);
 
         // Close existing connection if any
-        if (this.connections.has(userId)) {
-            this.closeConnection(userId, 'replaced');
+        if (this.connections.has(uid)) {
+          this.closeConnection(uid, 'replaced');
         }
 
         // Create connection object
         const connectionObj = {
-            res,
-            connectedAt: new Date(),
-            lastActivity: new Date(),
-            heartbeat: null,
-            userId
+          res,
+          connectedAt: new Date(),
+          lastActivity: new Date(),
+          heartbeat: null,
+          userId: uid
         };
 
-        this.connections.set(userId, connectionObj);
-        this.userStatus.set(userId, {
-            isOnline: true,
-            connectedAt: new Date(),
-            lastActivity: new Date()
+        this.connections.set(uid, connectionObj);
+        this.userStatus.set(uid, {
+          isOnline: true,
+          connectedAt: new Date(),
+          lastActivity: new Date()
         });
 
         console.log(`[SSE] Connection registered. Total online users: ${this.connections.size}`);
@@ -50,19 +51,20 @@ class SSEConnectionManager {
      * Close a connection for a user
      */
     closeConnection(userId, reason = 'unknown') {
-        console.log(`[SSE] Closing connection for user ${userId} (reason: ${reason})`);
+      const uid = String(userId);
+      console.log(`[SSE] Closing connection for user ${uid} (reason: ${reason})`);
 
-        const connObj = this.connections.get(userId);
+      const connObj = this.connections.get(uid);
         if (connObj && connObj.heartbeat) {
             clearInterval(connObj.heartbeat);
         }
 
-        this.connections.delete(userId);
+      this.connections.delete(uid);
 
-        // Mark user as offline
-        if (this.userStatus.has(userId)) {
-            this.userStatus.get(userId).isOnline = false;
-        }
+      // Mark user as offline
+      if (this.userStatus.has(uid)) {
+        this.userStatus.get(uid).isOnline = false;
+      }
 
         console.log(`[SSE] Connection closed. Total online users: ${this.connections.size}`);
     }
@@ -71,13 +73,14 @@ class SSEConnectionManager {
      * Send a message to a specific user via SSE
      */
     sendToUser(userId, data) {
-        const connObj = this.connections.get(userId);
+      const uid = String(userId);
+      const connObj = this.connections.get(uid);
 
-        if (!connObj) {
-            console.log(`[SSE] User ${userId} not connected, queueing message`);
-            this.queueMessage(userId, data);
-            return false;
-        }
+      if (!connObj) {
+        console.log(`[SSE] User ${uid} not connected, queueing message`);
+        this.queueMessage(uid, data);
+        return false;
+      }
 
         try {
             if (!connObj.res || !connObj.res.writable) {
@@ -91,12 +94,12 @@ class SSEConnectionManager {
             connObj.res.write(message);
             connObj.lastActivity = new Date();
 
-            console.log(`[SSE] Message sent to user ${userId}`);
+            console.log(`[SSE] Message sent to user ${uid}`);
             return true;
         } catch (err) {
-            console.error(`[SSE] Error sending message to ${userId}:`, err.message);
-            this.closeConnection(userId, 'write-error');
-            this.queueMessage(userId, data);
+            console.error(`[SSE] Error sending message to ${uid}:`, err.message);
+            this.closeConnection(uid, 'write-error');
+            this.queueMessage(uid, data);
             return false;
         }
     }
@@ -138,21 +141,23 @@ class SSEConnectionManager {
      * Queue a message for delivery when user comes online
      */
     queueMessage(userId, data) {
-        if (!this.messageQueue.has(userId)) {
-            this.messageQueue.set(userId, []);
-        }
-        this.messageQueue.get(userId).push(data);
-        console.log(`[SSE] Message queued for ${userId}, queue size: ${this.messageQueue.get(userId).length}`);
+      const uid = String(userId);
+      if (!this.messageQueue.has(uid)) {
+        this.messageQueue.set(uid, []);
+      }
+      this.messageQueue.get(uid).push(data);
+      console.log(`[SSE] Message queued for ${uid}, queue size: ${this.messageQueue.get(uid).length}`);
     }
 
     /**
      * Get and clear queued messages for a user
      */
     getQueuedMessages(userId) {
-        const messages = this.messageQueue.get(userId) || [];
-        this.messageQueue.delete(userId);
-        console.log(`[SSE] Retrieved ${messages.length} queued messages for ${userId}`);
-        return messages;
+      const uid = String(userId);
+      const messages = this.messageQueue.get(uid) || [];
+      this.messageQueue.delete(uid);
+      console.log(`[SSE] Retrieved ${messages.length} queued messages for ${uid}`);
+      return messages;
     }
 
     /**
@@ -166,14 +171,14 @@ class SSEConnectionManager {
      * Get user status
      */
     getUserStatus(userId) {
-        return this.userStatus.get(userId) || { isOnline: false };
+      return this.userStatus.get(String(userId)) || { isOnline: false };
     }
 
     /**
      * Setup heartbeat for a connection
      */
     setupHeartbeat(userId, interval = 25000) {
-        const connObj = this.connections.get(userId);
+      const connObj = this.connections.get(String(userId));
         if (!connObj) return;
 
         if (connObj.heartbeat) {
@@ -182,16 +187,16 @@ class SSEConnectionManager {
 
         connObj.heartbeat = setInterval(() => {
             try {
-                const currentConnObj = this.connections.get(userId);
+                const currentConnObj = this.connections.get(String(userId));
                 if (currentConnObj && currentConnObj.res && currentConnObj.res.writable) {
-                    currentConnObj.res.write(': heartbeat\n\n');
-                    currentConnObj.lastActivity = new Date();
+                  currentConnObj.res.write(': heartbeat\n\n');
+                  currentConnObj.lastActivity = new Date();
                 } else {
-                    this.closeConnection(userId, 'heartbeat-failed');
+                  this.closeConnection(String(userId), 'heartbeat-failed');
                 }
             } catch (err) {
                 console.error(`[SSE] Heartbeat error for ${userId}:`, err.message);
-                this.closeConnection(userId, 'heartbeat-error');
+                this.closeConnection(String(userId), 'heartbeat-error');
             }
         }, interval);
 
@@ -401,15 +406,15 @@ export const markPendingMessagesAsDelivered = async (userId) => {
             });
 
             deliveredMessages.forEach(msg => {
-                const senderId = msg.from_user_id || msg.sender_id;
-                if (senderId) {
-                    sseManager.sendToUser(senderId, {
-                        type: 'messageStatus',
-                        messageId: msg._id,
-                        status: 'delivered',
-                        timestamp: new Date().toISOString()
-                    });
-                }
+              const senderId = msg.from_user_id || msg.sender_id;
+              if (senderId) {
+                sseManager.sendToUser(String(senderId), {
+                  type: 'messageStatus',
+                  messageId: msg._id,
+                  status: 'delivered',
+                  timestamp: new Date().toISOString()
+                });
+              }
             });
         }
     } catch (err) {
@@ -443,31 +448,31 @@ export const sendMessageToUser = (userId, messageData) => {
  * Send delivery confirmation to sender
  */
 export const sendDeliveryConfirmation = (senderId, messageId) => {
-    return sseManager.sendToUser(senderId, {
-        type: 'messageStatus',
-        messageId,
-        status: 'delivered',
-        timestamp: new Date().toISOString()
-    });
+  return sseManager.sendToUser(String(senderId), {
+    type: 'messageStatus',
+    messageId,
+    status: 'delivered',
+    timestamp: new Date().toISOString()
+  });
 };
 
 /**
  * Send read receipt to sender
  */
 export const sendReadReceipt = (senderId, messageId) => {
-    return sseManager.sendToUser(senderId, {
-        type: 'messageStatus',
-        messageId,
-        status: 'read',
-        timestamp: new Date().toISOString()
-    });
+  return sseManager.sendToUser(String(senderId), {
+    type: 'messageStatus',
+    messageId,
+    status: 'read',
+    timestamp: new Date().toISOString()
+  });
 };
 
 /**
  * Send view notification for view-once messages
  */
 export const sendViewNotification = (senderId, messageId, viewedBy) => {
-    return sseManager.sendToUser(senderId, {
+  return sseManager.sendToUser(String(senderId), {
         type: 'messageViewed',
         messageId,
         viewedBy,
@@ -479,7 +484,7 @@ export const sendViewNotification = (senderId, messageId, viewedBy) => {
  * Check if user is online
  */
 export const isUserOnline = (userId) => {
-    return sseManager.connections.has(userId);
+  return sseManager.connections.has(String(userId));
 };
 
 /**

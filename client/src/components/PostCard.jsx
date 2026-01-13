@@ -64,6 +64,31 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [uniqueViewers, setUniqueViewers] = useState(post.unique_viewers || 0);
 
+  // Shortlink for first URL in post content (display only shortlink on posts)
+  const firstUrlMatch = post?.content?.match(/https?:\/\/[\w\-./?=#%&]+/i);
+  const firstUrl = firstUrlMatch ? firstUrlMatch[0] : null;
+  const [postShortUrl, setPostShortUrl] = useState(null);
+  const [postShortLoading, setPostShortLoading] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    if (!firstUrl) return;
+    const makeShort = async () => {
+      try {
+        setPostShortLoading(true);
+        const token = await getToken();
+        const { data } = await api.post('/api/shortlink', { url: firstUrl }, { headers: { Authorization: `Bearer ${token}` } });
+        if (!mounted) return;
+        if (data && data.success) setPostShortUrl(data.shortUrl || null);
+      } catch (e) {
+        // ignore shortlink errors
+      } finally {
+        if (mounted) setPostShortLoading(false);
+      }
+    };
+    makeShort();
+    return () => { mounted = false; };
+  }, [firstUrl]);
+
   const currentUser = useSelector((state) => state.user.value);
   const isOwnPost = post.user._id === currentUser._id;
 
@@ -829,6 +854,18 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
                 text={post.content} 
                 className="leading-relaxed"
               />
+              {firstUrl && (
+                <div className="mt-2">
+                  <a
+                    href={postShortUrl || firstUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 break-words"
+                  >
+                    {postShortUrl || firstUrl}
+                  </a>
+                </div>
+              )}
             </div>
           )}
       {/* Media (Images, Videos, Audio) */}
@@ -862,6 +899,8 @@ const PostCard = ({ post, onPostUpdate, onPostDelete }) => {
             <AudioPlayer 
               src={audio}
               fileName={`audio-${index + 1}`}
+              isOwnMessage={currentUser && post.user && post.user._id === currentUser._id}
+              message={{ _id: post._id, /* minimal message-like object for status rendering */ }}
             />
           </div>
         ))}

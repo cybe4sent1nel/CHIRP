@@ -1,209 +1,223 @@
 import React, { useRef, useState, useEffect } from 'react';
+import MessageStatus from './MessageStatus';
 
-const AudioPlayer = ({ senderName = 'Unknown', src = '' }) => {
+const AudioPlayer = ({ senderName = 'Unknown', src = '', isOwnMessage = false, message = {} }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [bars, setBars] = useState([]);
+  const BAR_COUNT = 30;
+  const lottieRef = useRef(null);
 
-  const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
+  useEffect(() => {
+    // generate waveform bars heights
+    const arr = Array.from({ length: BAR_COUNT }).map(() => Math.floor(Math.random() * 24) + 8);
+    setBars(arr);
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+      if (audio.duration) setDuration(audio.duration);
+    };
+    const onEnd = () => setIsPlaying(false);
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('loadedmetadata', onTime);
+    audio.addEventListener('ended', onEnd);
+    return () => {
+      audio.removeEventListener('timeupdate', onTime);
+      audio.removeEventListener('loadedmetadata', onTime);
+      audio.removeEventListener('ended', onEnd);
+    };
+  }, [src]);
+
+  // Load lottie player web component if needed
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (window.customElements && window.customElements.get && window.customElements.get('lottie-player')) return;
+    } catch (e) {
+      // ignore
+    }
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js';
+    s.async = true;
+    document.body.appendChild(s);
+  }, []);
+
+  const togglePlay = async () => {
+    if (!audioRef.current) return;
+    try {
+      if (audioRef.current.paused) {
+        await audioRef.current.play();
+        setIsPlaying(true);
       } else {
-        audioRef.current.play();
+        audioRef.current.pause();
+        setIsPlaying(false);
       }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
+    } catch (e) {
+      console.error('Audio play error', e);
     }
   };
 
   const handleSeek = (e) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = (e.target.value / 100) * duration;
-      setCurrentTime(audioRef.current.currentTime);
-    }
+    if (!audioRef.current || !duration) return;
+    const val = Number(e.target.value);
+    audioRef.current.currentTime = (val / 100) * duration;
+    setCurrentTime(audioRef.current.currentTime);
   };
 
   const handleVolumeChange = (e) => {
-    const vol = e.target.value / 100;
-    setVolume(vol);
-    if (audioRef.current) {
-      audioRef.current.volume = vol;
-    }
+    const val = Number(e.target.value) / 100;
+    setVolume(val);
+    if (audioRef.current) audioRef.current.volume = val;
+    if (isMuted && val > 0) setIsMuted(false);
+  };
+
+  const toggleMute = () => {
+    if (!audioRef.current) return;
     if (isMuted) {
+      audioRef.current.volume = volume;
       setIsMuted(false);
+    } else {
+      audioRef.current.volume = 0;
+      setIsMuted(true);
     }
   };
 
-  const handleMuteToggle = () => {
-    if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = volume;
-        setIsMuted(false);
-      } else {
-        audioRef.current.volume = 0;
-        setIsMuted(true);
-      }
-    }
+  const speeds = [1, 1.5, 2];
+  const [speedIndex, setSpeedIndex] = useState(0);
+  const toggleSpeed = () => {
+    const next = (speedIndex + 1) % speeds.length;
+    setSpeedIndex(next);
+    if (audioRef.current) audioRef.current.playbackRate = speeds[next];
   };
 
-  const formatTime = (time) => {
-    if (!time || isNaN(time)) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
+  // Sync lottie player with playback state
+  useEffect(() => {
+    const el = lottieRef.current;
+    if (!el) return;
+    if (isPlaying) {
+      if (el.play) el.play();
+    } else {
+      if (el.pause) el.pause();
+    }
+  }, [isPlaying]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.addEventListener('ended', () => setIsPlaying(false));
+    const el = lottieRef.current;
+    if (!el) return;
+    if (el.setSpeed) el.setSpeed(speeds[speedIndex]);
+  }, [speedIndex]);
 
-      return () => {
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      };
-    }
-  }, []);
+  const formatTime = (t) => {
+    if (!t || isNaN(t)) return '0:00';
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progress = duration ? (currentTime / duration) * 100 : 0;
+
+  const foregroundClass = isOwnMessage ? 'text-white' : 'text-white';
+  const playBg = isOwnMessage ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gray-700';
+  const controlBg = isOwnMessage ? 'bg-green-50' : 'bg-gray-100';
+  const barPlayed = isOwnMessage ? 'linear-gradient(to top, #10b981, #6ee7b7)' : 'linear-gradient(to top, #9ca3af, #6b7280)';
+
   return (
-    <div className="flex flex-col items-center group/he select-none">
-      <audio ref={audioRef} src={src} />
-      <div className="relative z-0 h-16 -mb-2 transition-all duration-200 group-hover/he:h-0">
-        <svg width={128} height={128} viewBox="0 0 128 128" className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5 animate-[spin_3s_linear_infinite] transition-all">
-          <svg>
-            <rect width={128} height={128} fill="black" />
-            <circle cx={20} cy={20} r={2} fill="white" />
-            <circle cx={40} cy={30} r={2} fill="white" />
-            <circle cx={60} cy={10} r={2} fill="white" />
-            <circle cx={80} cy={40} r={2} fill="white" />
-            <circle cx={100} cy={20} r={2} fill="white" />
-            <circle cx={120} cy={50} r={2} fill="white" />
-            <circle cx={90} cy={30} r={10} fill="white" fillOpacity="0.5" />
-            <circle cx={90} cy={30} r={8} fill="white" />
-            <path d="M0 128 Q32 64 64 128 T128 128" fill="purple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q32 48 64 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q32 32 64 128 T128 128" fill="rebeccapurple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q16 64 32 128 T64 128" fill="purple" stroke="black" strokeWidth={1} />
-            <path d="M64 128 Q80 64 96 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-          </svg>
-        </svg>
-        <div className="absolute z-10 w-8 h-8 bg-white border-4 rounded-full shadow-sm border-zinc-400 top-12 left-12" />
-      </div>
-      <div className="z-30 flex flex-col w-40 h-24 transition-all duration-300 bg-white shadow-md group-hover/he:h-40 group-hover/he:w-72 rounded-2xl shadow-zinc-400">
-        <div className="flex flex-row w-full h-0 group-hover/he:h-20">
-          <div className="relative flex items-center justify-center w-24 h-24 group-hover/he:-top-6 group-hover/he:-left-4 opacity-0 group-hover/he:animate-[spin_3s_linear_infinite] group-hover/he:opacity-100 transition-all duration-100">
-            <svg width={96} height={96} viewBox="0 0 128 128" className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5">
-              <svg>
-                <rect width={128} height={128} fill="black" />
-                <circle cx={20} cy={20} r={2} fill="white" />
-                <circle cx={40} cy={30} r={2} fill="white" />
-                <circle cx={60} cy={10} r={2} fill="white" />
-                <circle cx={80} cy={40} r={2} fill="white" />
-                <circle cx={100} cy={20} r={2} fill="white" />
-                <circle cx={120} cy={50} r={2} fill="white" />
-                <circle cx={90} cy={30} r={10} fill="white" fillOpacity="0.5" />
-                <circle cx={90} cy={30} r={8} fill="white" />
-                <path d="M0 128 Q32 64 64 128 T128 128" fill="purple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q32 48 64 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q32 32 64 128 T128 128" fill="rebeccapurple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q16 64 32 128 T64 128" fill="purple" stroke="black" strokeWidth={1} />
-                <path d="M64 128 Q80 64 96 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-              </svg>
-            </svg>
-            <div className="absolute z-10 w-6 h-6 bg-white border-4 rounded-full shadow-sm border-zinc-400 top-9 left-9" />
+    <div>
+      <style>{`
+        .voice-note-card { background: #fff; padding: 12px 16px; border-radius: 24px; box-shadow: 0 12px 30px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); width: 100%; max-width: 420px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; position: relative; overflow: visible; }
+        .play-btn { background: #f0f2f5; border: none; width: 54px; height: 54px; border-radius: 50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: background 0.2s, transform 0.2s; flex-shrink:0 }
+        .play-btn:hover { background:#e1e4e8; transform: scale(1.05); }
+        .play-btn.playing svg { fill: #764ba2; }
+        .waveform-container { flex: 1 1 auto; min-width: 0; position:relative; height:40px; display:flex; align-items:center; cursor:pointer; margin-right:10px }
+        .waveform-bar { width:4px; margin:0 1px; border-radius:2px; background-color:#ebedf0; transition: height 0.2s ease, opacity 0.3s ease; height:10px }
+        .waveform-overlay { position:absolute; left:0; top:0; height:100%; width:0%; overflow:hidden; display:flex; align-items:center; pointer-events:none; transition: width 0.1s linear }
+        .waveform-overlay .waveform-bar { background: linear-gradient(to top, #667eea, #764ba2) !important }
+        .waveform-container.playing .waveform-overlay .waveform-bar { background: linear-gradient(to top, #0052D4, #43C6AC) !important; opacity:1 }
+        .waveform-container.playing #waveformBase .waveform-bar { background-image: linear-gradient(to top, #0052D4, #43C6AC); opacity:0.25 }
+        .playing .waveform-bar { animation: wavePulse 1s infinite ease-in-out }
+        .waveform-bar:nth-child(odd) { animation-duration: 0.8s }
+        .waveform-bar:nth-child(2n) { animation-duration:1.1s }
+        .waveform-bar:nth-child(3n) { animation-duration:1.3s }
+        .waveform-bar:nth-child(4n) { animation-duration:0.9s }
+        @keyframes wavePulse { 0%,100%{ transform: scaleY(1) } 50%{ transform: scaleY(1.4) } }
+        .mascot-group { display:flex; flex-direction:column; align-items:center; justify-content:center; width:52px; flex-shrink:0 }
+        .bird-container { position:relative; width:42px; height:42px; display:flex; justify-content:center; align-items:center; overflow:visible }
+        .bird-container.bobbing { animation: headBob 0.6s infinite alternate ease-in-out }
+        @keyframes headBob { 0% { transform: translateY(0) rotate(0deg) scale(1) } 100% { transform: translateY(-3px) rotate(5deg) scale(1.05) } }
+        .time-display { font-size:11px; color:#8898aa; text-align:center; font-weight:700; margin-top:4px }
+        .volume-container { display:flex; align-items:center; gap:6px; background:#f0f2f5; padding:4px 6px; border-radius:12px; max-width:120px }
+        .volume-slider { width:44px; height:4px; -webkit-appearance:none; background:#cbd5e0; border-radius:2px }
+        .speed-btn { background:#f0f2f5; color:#667eea; border:none; border-radius:12px; padding:6px 8px; font-size:12px; font-weight:700; cursor:pointer; min-width:36px }
+        .controls-right { display:flex; align-items:center; gap:12px; flex-shrink:0 }
+      `}</style>
+
+      <div className={`voice-note-card ${isOwnMessage ? 'justify-end' : 'justify-start'}`} style={{ alignSelf: isOwnMessage ? 'flex-end' : 'flex-start' }}>
+        <audio ref={audioRef} src={src} preload="metadata" />
+
+        <button onClick={togglePlay} className={`play-btn ${isPlaying ? 'playing' : ''}`} aria-label={isPlaying ? 'Pause' : 'Play'}>
+          {!isPlaying ? (
+            <svg viewBox="0 0 24 24" width={24} height={24}><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" fill="#667eea"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width={24} height={24}><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z" fill="#764ba2"/></svg>
+          )}
+        </button>
+
+        <div className={`waveform-container ${isPlaying ? 'playing' : ''}`} id="waveformContainer">
+          <div id="waveformBase" style={{display:'flex', alignItems:'center', width:'100%', height:'100%'}}>
+            {bars.map((h, i) => (
+              <div key={i} className="waveform-bar" style={{ height: `${h}px` }} />
+            ))}
           </div>
-          <div className="flex flex-col justify-center w-full pl-3 -ml-24 overflow-hidden group-hover/he:-ml-3 text-nowrap">
-            <p className="text-xl font-bold">{senderName}</p>
-            <p className="text-zinc-600">Audio message</p>
+          <div className="waveform-overlay" id="waveformOverlay" style={{ width: `${progress}%` }}>
+            <div id="waveformActive" style={{display:'flex', alignItems:'center', width:'100%', height:'100%'}}>
+              {bars.map((h, i) => (
+                <div key={i} className="waveform-bar" style={{ height: `${h}px` }} />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="flex flex-row mx-3 mt-1 bg-indigo-100 rounded-md min-h-4 group-hover/he:mt-0">
-          <span className="hidden pl-3 text-sm text-zinc-600 group-hover/he:inline-block">{formatTime(currentTime)}</span>
-          <input type="range" min={0} max={100} value={duration ? (currentTime / duration) * 100 : 0} onChange={handleSeek} className="w-24 group-hover/he:w-full flex-grow h-1 mx-2 my-auto bg-gray-300 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-zinc-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md" />
-          <span className="hidden pr-3 text-sm text-zinc-600 group-hover/he:inline-block">{formatTime(duration)}</span>
         </div>
 
-        <div className="hidden group-hover/he:flex flex-row mx-3 mt-2 items-center gap-2 bg-green-100 rounded-md px-3 py-2">
-          <button onClick={handleMuteToggle} className="flex items-center justify-center flex-shrink-0">
-            {isMuted ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-volume-x">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <line x1={23} y1={9} x2={17} y2={15} />
-                <line x1={17} y1={9} x2={23} y2={15} />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-volume-2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              </svg>
-            )}
-          </button>
-          <input type="range" min={0} max={100} value={isMuted ? 0 : volume * 100} onChange={handleVolumeChange} className="flex-grow h-1 bg-green-300 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-green-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md" />
-          <span className="text-xs text-green-700 font-semibold min-w-6">{Math.round(isMuted ? 0 : volume * 100)}%</span>
-        </div>
-        <div className="flex flex-row items-center justify-center flex-grow mx-3 space-x-4 py-2">
-          <label htmlFor="playMode" className="flex items-center justify-center w-0 h-full cursor-pointer group-hover/he:w-8">
-            <input type="checkbox" id="playMode" className="hidden peer/playMode" />
-            <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-repeat peer-checked/playMode:hidden">
-              <polyline points="17 1 21 5 17 9" />
-              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-              <polyline points="7 23 3 19 7 15" />
-              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-            </svg>
-            <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden feather feather-shuffle peer-checked/playMode:inline-block">
-              <polyline points="16 3 21 3 21 8" />
-              <line x1={4} y1={20} x2={21} y2={3} />
-              <polyline points="21 16 21 21 16 21" />
-              <line x1={15} y1={15} x2={21} y2={21} />
-              <line x1={4} y1={4} x2={9} y2={9} />
-            </svg>
-          </label>
-          <button className="flex items-center justify-center w-9 h-9 cursor-pointer bg-indigo-100 hover:bg-indigo-200 rounded-full transition-all active:scale-95">
-            <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-skip-back">
-              <polygon points="19 20 9 12 19 4 19 20" />
-              <line x1={5} y1={19} x2={5} y2={5} />
-            </svg>
-          </button>
-          <button onClick={handlePlayPause} className="flex items-center justify-center w-12 h-12 cursor-pointer bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all">
-            {isPlaying ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-pause">
-                <rect x={6} y={4} width={4} height={16} />
-                <rect x={14} y={4} width={4} height={16} />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-play">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            )}
-          </button>
-          <button className="flex items-center justify-center w-9 h-9 cursor-pointer bg-indigo-100 hover:bg-indigo-200 rounded-full transition-all active:scale-95">
-            <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="feather feather-skip-forward">
-              <polygon points="5 4 15 12 5 20 5 4" />
-              <line x1={19} y1={5} x2={19} y2={19} />
-            </svg>
-          </button>
-
+        <div className="controls-right" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div className={`mascot-group ${isPlaying ? 'bobbing' : ''}`} style={{ width: 52 }}>
+              <div className="bird-container">
+                <lottie-player
+                  ref={lottieRef}
+                  src="https://bird-membership.tiiny.site/bird-membership.json"
+                  background="transparent"
+                  speed="1"
+                  loop
+                  style={{ width: 40, height: 40 }}
+                ></lottie-player>
+              </div>
+              <div className="time-display">{formatTime(currentTime)}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className={`volume-container`}>
+                <button onClick={toggleMute} className="volume-btn" aria-label="Mute toggle">
+                  {isMuted ? (
+                    <svg width={18} height={18} viewBox="0 0 24 24"><path d="M16 7l5 5m0-5l-5 5" stroke="#667eea" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  ) : (
+                    <svg width={18} height={18} viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z" fill="#667eea"/></svg>
+                  )}
+                </button>
+                <input type="range" min={0} max={100} value={isMuted ? 0 : Math.round(volume * 100)} onChange={handleVolumeChange} className="volume-slider" />
+              </div>
+              <button onClick={toggleSpeed} className="speed-btn">{[1,1.5,2][speedIndex]}x</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default AudioPlayer;

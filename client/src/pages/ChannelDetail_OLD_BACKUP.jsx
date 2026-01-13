@@ -122,14 +122,16 @@ const ChannelDetail = () => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to send voice note");
-      }
-
-      const data = await response.json();
-      setMessages((prev) => [...prev, data.message]);
-    } catch (err) {
-      console.error("Error sending voice note:", err);
-      alert("Failed to send voice note");
+                                    {msg.message_type === "voice" && (
+                                      <div className="mb-2">
+                                        <AudioPlayer 
+                                          src={msg.content}
+                                          fileName={msg.file_name || "voice-note.webm"}
+                                          isOwnMessage={msg.user_id && msg.user_id._id === user._id}
+                                          message={msg}
+                                        />
+                                      </div>
+                                    )}
     } finally {
       setSending(false);
     }

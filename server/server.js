@@ -20,6 +20,8 @@ import { serve } from 'inngest/express';
 import { clerkMiddleware } from '@clerk/express'
 import passport from './configs/passport.js';
 import { handleSSEConnection, handleSSEOptions } from "./controllers/sseController.js";
+import { getSSEStats } from './services/sseService.js';
+import { getJWKSCache } from './middlewares/auth.js';
 import { initializeMessageExpirations, clearAllExpirationTimers } from "./services/messageExpirationService.js";
 import userRouter from "./routes/userRoutes.js";
 import postRouter from "./routes/postRoutes.js";
@@ -42,6 +44,7 @@ import onboardingDataRouter from "./routes/onboardingRoutes.js";
 import preferenceRouter from "./routes/preferenceRoutes.js";
 import conversationRouter from "./routes/conversationRoutes.js";
 import chatSettingsRouter from "./routes/chatSettingsRoutes.js";
+import shortLinkRouter from "./routes/shortLinkRoutes.js";
 import { setupGameWebSocket } from "./websocket/gameSocket.js";
 
 const app = express();
@@ -230,6 +233,67 @@ app.get("/api/sse-test/:userId", (req, res) => {
   }, 500);
 });
 
+// Debug endpoints
+app.get('/api/debug/sse-stats', (req, res) => {
+  try {
+    const stats = getSSEStats();
+    res.json({ success: true, stats });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e && e.message ? e.message : String(e) });
+  }
+});
+
+app.get('/api/debug/jwks-cache', (req, res) => {
+  try {
+    const cache = getJWKSCache();
+    res.json({ success: true, cache });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e && e.message ? e.message : String(e) });
+  }
+});
+
+// Preview endpoint: server-side fetch and parse Open Graph metadata
+app.post('/api/preview', async (req, res) => {
+  try {
+    const { url } = req.body || {};
+    if (!url) return res.status(400).json({ success: false, message: 'url is required' });
+
+    // Basic validation
+    try { new URL(url); } catch (e) { return res.status(400).json({ success: false, message: 'invalid url' }); }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'chirp-preview/1.0' } });
+    clearTimeout(timeout);
+    if (!resp.ok) return res.status(502).json({ success: false, message: 'failed to fetch url', status: resp.status });
+    const text = await resp.text();
+
+    // Simple extraction of OG tags and title/description
+    const meta = {};
+    const ogMatch = (name) => {
+      const r = new RegExp(`<meta[^>]+property=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i');
+      const m = text.match(r);
+      return m ? m[1] : null;
+    };
+    const nameMatch = (name) => {
+      const r = new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i');
+      const m = text.match(r);
+      return m ? m[1] : null;
+    };
+
+    meta.title = ogMatch('og:title') || (text.match(/<title>([^<]+)<\/title>/i) || [])[1] || null;
+    meta.description = ogMatch('og:description') || nameMatch('description') || null;
+    meta.image = ogMatch('og:image') || null;
+    meta.site = (text.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i) || [])[1] || (new URL(url)).hostname;
+
+    res.json({ success: true, preview: meta });
+  } catch (e) {
+    if (e.name === 'AbortError') return res.status(504).json({ success: false, message: 'fetch timeout' });
+    console.error('[PREVIEW] error fetching url:', e && e.message ? e.message : e);
+    res.status(500).json({ success: false, message: 'preview fetch failed' });
+  }
+});
+
 // Session configuration for Passport
 app.use(session({
   secret: process.env.SESSION_SECRET || 'chirp-session-secret-change-in-production',
@@ -285,6 +349,7 @@ app.use('/api/onboarding', onboardingDataRouter)
 app.use('/api/preferences', preferenceRouter)
 app.use('/api/conversations', conversationRouter)
 app.use('/api/chat-settings', chatSettingsRouter)
+app.use('/api/shortlink', shortLinkRouter)
 app.use('/api', analyticsRouter)
 app.use('/api/games', gameRouter)
 

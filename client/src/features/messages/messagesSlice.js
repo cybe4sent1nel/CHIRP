@@ -3,6 +3,7 @@ import api from '../../api/axios'
 
 const initialState = {
     messages: [],
+    pendingStatuses: {}, // map messageId -> latest status received before message exists
     error: null,
     loading: false
 }
@@ -48,7 +49,8 @@ const messageSlice = createSlice({
                             const sameSender = (m.from_user_id && incoming.from_user_id && ((m.from_user_id._id && incoming.from_user_id._id && m.from_user_id._id === incoming.from_user_id._id) || (m.from_user_id === incoming.from_user_id)) ) || (m.sender_id && incoming.sender_id && m.sender_id === incoming.sender_id);
                             const sameText = (m.text && incoming.text && m.text === incoming.text) || false;
                             const mTime = m.createdAt ? new Date(m.createdAt).getTime() : null;
-                            const timeClose = mTime && Math.abs(mTime - incomingTime) < 5000; // 5 seconds
+                            // broaden heuristic match window to 15 seconds to be more tolerant of clock skew/network delays
+                            const timeClose = mTime && Math.abs(mTime - incomingTime) < 15000; // 15 seconds
                             return sameSender && sameText && timeClose;
                         } catch (e) {
                             return false;
@@ -68,6 +70,22 @@ const messageSlice = createSlice({
             });
             if (duplicateIndex !== -1) return;
 
+            // Before appending, apply any pending status for this incoming id
+            if (incomingId && state.pendingStatuses[incomingId]) {
+                const status = state.pendingStatuses[incomingId];
+                if (status === 'delivered') {
+                    incoming.delivered = true;
+                    incoming.delivered_at = incoming.delivered_at || new Date().toISOString();
+                } else if (status === 'read') {
+                    incoming.read = true;
+                    incoming.read_at = incoming.read_at || new Date().toISOString();
+                    incoming.delivered = true;
+                    incoming.delivered_at = incoming.delivered_at || new Date().toISOString();
+                }
+                // clear pending status once applied
+                delete state.pendingStatuses[incomingId];
+            }
+
             state.messages = [...state.messages, action.payload]
         },
         // Confirm optimistic message with server-provided message
@@ -77,9 +95,40 @@ const messageSlice = createSlice({
             if (idx !== -1) {
                 // Preserve optimistic flags (like outgoing) when replacing
                 const existing = state.messages[idx] || {};
-                state.messages[idx] = { ...serverMessage, outgoing: existing.outgoing || serverMessage.outgoing };
+                const merged = { ...serverMessage, outgoing: existing.outgoing || serverMessage.outgoing };
+                // If there's a pending status for the server-provided id, apply it now
+                const serverId = merged._id || merged.id;
+                if (serverId && state.pendingStatuses[serverId]) {
+                    const status = state.pendingStatuses[serverId];
+                    if (status === 'delivered') {
+                        merged.delivered = true;
+                        merged.delivered_at = merged.delivered_at || new Date().toISOString();
+                    } else if (status === 'read') {
+                        merged.read = true;
+                        merged.read_at = merged.read_at || new Date().toISOString();
+                        merged.delivered = true;
+                        merged.delivered_at = merged.delivered_at || new Date().toISOString();
+                    }
+                    delete state.pendingStatuses[serverId];
+                }
+                state.messages[idx] = merged;
             } else {
                 // Fallback: append server message
+                // apply pending status if exists
+                const serverId = serverMessage._id || serverMessage.id;
+                if (serverId && state.pendingStatuses[serverId]) {
+                    const status = state.pendingStatuses[serverId];
+                    if (status === 'delivered') {
+                        serverMessage.delivered = true;
+                        serverMessage.delivered_at = serverMessage.delivered_at || new Date().toISOString();
+                    } else if (status === 'read') {
+                        serverMessage.read = true;
+                        serverMessage.read_at = serverMessage.read_at || new Date().toISOString();
+                        serverMessage.delivered = true;
+                        serverMessage.delivered_at = serverMessage.delivered_at || new Date().toISOString();
+                    }
+                    delete state.pendingStatuses[serverId];
+                }
                 state.messages.push(serverMessage);
             }
         },
@@ -89,9 +138,67 @@ const messageSlice = createSlice({
         updateMessageStatus: (state, action) => {
             const { messageId, status } = action.payload;
             // Support matching by _id or id
-            const messageIndex = state.messages.findIndex(msg => (msg._id && msg._id === messageId) || (msg.id && msg.id === messageId));
-            
-            if (messageIndex !== -1) {
+                const normalize = (val) => {
+                    if (!val) return null;
+                    if (typeof val === 'string') return val;
+                    if (typeof val === 'object') return val._id || val.id || null;
+                    return null;
+                };
+
+                const messageIndex = state.messages.findIndex(msg => {
+                    const mid = normalize(msg._id) || normalize(msg.id);
+                    return mid && mid === normalize(messageId);
+                });
+
+                // If we couldn't find a message by id, try a heuristic: match by text + timestamp proximity + sender/recipient
+                let usedHeuristic = false;
+                if (messageIndex === -1) {
+                    const targetId = normalize(messageId);
+                    const incomingTime = null; // unknown here
+                    const heuristicIndex = state.messages.findIndex(m => {
+                        try {
+                            const mTime = m.createdAt ? new Date(m.createdAt).getTime() : null;
+                            const sameText = action.payload.text && m.text && action.payload.text === m.text;
+                            // broaden heuristic window to 15s to tolerate clock skew/network delays
+                            const timeClose = mTime && action.payload.createdAt ? Math.abs(mTime - new Date(action.payload.createdAt).getTime()) < 15000 : false; // 15s
+                            const sameSender = (normalize(m.from_user_id) && normalize(action.payload.from_user_id) && normalize(m.from_user_id) === normalize(action.payload.from_user_id)) || false;
+                            const sameRecipient = (normalize(m.to_user_id) && normalize(action.payload.to_user_id) && normalize(m.to_user_id) === normalize(action.payload.to_user_id)) || false;
+                            return (sameText && (timeClose || sameSender || sameRecipient));
+                        } catch (e) {
+                            return false;
+                        }
+                    });
+
+                    if (heuristicIndex !== -1) {
+                        usedHeuristic = true;
+                    }
+
+                    if (heuristicIndex !== -1) {
+                        // use heuristic index
+                        const idx = heuristicIndex;
+                        const updatedMessage = { ...state.messages[idx] };
+                        if (status === 'delivered') {
+                            updatedMessage.delivered = true;
+                            updatedMessage.delivered_at = new Date().toISOString();
+                        } else if (status === 'read') {
+                            updatedMessage.read = true;
+                            updatedMessage.read_at = new Date().toISOString();
+                            updatedMessage.delivered = true;
+                            if (!updatedMessage.delivered_at) updatedMessage.delivered_at = new Date().toISOString();
+                        }
+                        state.messages[idx] = updatedMessage;
+                        console.log('Heuristic-updated message status:', state.messages[idx]._id || state.messages[idx].id, status);
+                        return;
+                    }
+                    // If still not found, store as pending status to apply when message arrives/confirmed
+                    if (targetId) {
+                        state.pendingStatuses[targetId] = status;
+                        console.log('Stored pending status for messageId', targetId, 'status', status);
+                        return;
+                    }
+                }
+
+                if (messageIndex !== -1) {
                 // Create a new message object to ensure React detects the change
                 const updatedMessage = { ...state.messages[messageIndex] };
                 

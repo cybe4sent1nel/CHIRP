@@ -235,5 +235,20 @@ export const AuthProvider = ({ children }) => {
     customLogout,
   };
 
+  // Persist a simple current user id for other parts of the app to read on reloads
+  useEffect(() => {
+    try {
+      if (clerkUser && clerkUser.id) {
+        localStorage.setItem('currentUserId', clerkUser.id);
+      } else if (customUser && (customUser._id || customUser.id || customUser.userId)) {
+        localStorage.setItem('currentUserId', customUser._id || customUser.id || customUser.userId);
+      } else {
+        localStorage.removeItem('currentUserId');
+      }
+    } catch (e) {
+      console.debug('Failed to persist currentUserId', e?.message || e);
+    }
+  }, [clerkUser, customUser]);
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

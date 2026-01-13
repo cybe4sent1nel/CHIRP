@@ -299,6 +299,8 @@ const ChannelDetail = () => {
                             <AudioPlayer 
                               src={msg.content}
                               fileName={msg.file_name || "voice-note.webm"}
+                              isOwnMessage={msg.user_id._id === user._id}
+                              message={msg}
                             />
                           </div>
                         )}
@@ -328,6 +330,8 @@ const ChannelDetail = () => {
                             <AudioPlayer 
                               src={msg.content}
                               fileName={msg.file_name || "audio.mp3"}
+                              isOwnMessage={msg.user_id._id === user._id}
+                              message={msg}
                             />
                           </div>
                         )}

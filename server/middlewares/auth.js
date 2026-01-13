@@ -9,6 +9,9 @@ const clerkClient = createClerkClient({
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY
 });
 
+// Simple in-memory JWKS cache to avoid frequent remote fetches
+const jwksCache = new Map(); // jwksUrl -> { keys, fetchedAt, expiresAt }
+const JWKS_TTL_MS = parseInt(process.env.JWKS_TTL_MS || String(5 * 60 * 1000), 10); // default 5 minutes
 export const protect = async (req, res, next) => {
     try {
         // Skip auth for OPTIONS preflight requests
@@ -129,12 +132,26 @@ export const protect = async (req, res, next) => {
                 if (!iss) throw new Error('No issuer in token payload');
 
                 const jwksUrl = iss.replace(/\/$/, '') + '/.well-known/jwks.json';
-                console.log('[AUTH] Fetching JWKS from', jwksUrl);
+                console.log('[AUTH] JWKS fallback: kid=', kid, 'iss=', iss, 'jwksUrl=', jwksUrl);
 
-                const resp = await fetch(jwksUrl, { method: 'GET' });
-                if (!resp.ok) throw new Error('Failed to fetch JWKS: ' + resp.status);
-                const jwks = await resp.json();
-                const keys = jwks.keys || [];
+                // Check cache first
+                let jwksEntry = jwksCache.get(jwksUrl);
+                const now = Date.now();
+                if (jwksEntry && jwksEntry.expiresAt && jwksEntry.expiresAt > now) {
+                    console.log('[AUTH] Using cached JWKS for', jwksUrl);
+                } else {
+                    console.log('[AUTH] Fetching JWKS from', jwksUrl);
+                    const resp = await fetch(jwksUrl, { method: 'GET' });
+                    if (!resp.ok) throw new Error('Failed to fetch JWKS: ' + resp.status);
+                    const jwks = await resp.json();
+                    jwksEntry = {
+                        keys: jwks.keys || [],
+                        fetchedAt: now,
+                        expiresAt: now + JWKS_TTL_MS
+                    };
+                    jwksCache.set(jwksUrl, jwksEntry);
+                }
+                const keys = jwksEntry.keys || [];
                 const key = keys.find(k => k.kid === kid) || keys[0];
                 if (!key) throw new Error('No JWK found for token');
 
@@ -146,6 +163,7 @@ export const protect = async (req, res, next) => {
                     const certPem = `-----BEGIN CERTIFICATE-----\n${formatted}\n-----END CERTIFICATE-----`;
                     try {
                         pubKeyObject = crypto.createPublicKey(certPem);
+                        console.log('[AUTH] Created public KeyObject from x5c certificate (kid=' + (key.kid || 'unknown') + ')');
                     } catch (e) {
                         throw new Error('Failed to create public key from x5c certificate: ' + e.message);
                     }
@@ -154,6 +172,7 @@ export const protect = async (req, res, next) => {
                         // Use Node's JWK import support to create a KeyObject directly
                         const jwk = { kty: 'RSA', n: key.n, e: key.e };
                         pubKeyObject = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+                        console.log('[AUTH] Created public KeyObject from JWK (kid=' + (key.kid || 'unknown') + ')');
                     } catch (e) {
                         throw new Error('Failed to create public key from JWK (n/e): ' + e.message);
                     }
@@ -213,4 +232,17 @@ export const protect = async (req, res, next) => {
 // Helper function to get userId from request (works for both Clerk and custom JWT)
 export const getUserId = (req) => {
     return req.userId || req.auth()?.userId;
+}
+
+// Expose JWKS cache summary for diagnostics
+export const getJWKSCache = () => {
+    const summary = {};
+    for (const [url, entry] of jwksCache.entries()) {
+        summary[url] = {
+            keys: (entry.keys || []).length,
+            fetchedAt: entry.fetchedAt,
+            expiresAt: entry.expiresAt
+        };
+    }
+    return summary;
 }

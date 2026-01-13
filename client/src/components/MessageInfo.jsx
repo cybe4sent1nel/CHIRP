@@ -57,7 +57,7 @@ const MessageInfo = ({ message, currentUserId, onClose }) => {
             <p className="text-xs font-semibold text-gray-700 mb-2">Message Status</p>
             <div className="space-y-2 text-xs text-gray-600">
               <p>Status: {message.read_at ? '✓✓ Read' : message.delivered_at ? '✓✓ Delivered' : message.sent ? '✓ Sent' : 'Sending...'}</p>
-              {message.edited && <p>✏️ Edited {message.edited_at ? `at ${new Date(message.edited_at).toLocaleTimeString()}` : ''}</p>}
+              {message.edited && <p>✏️ Edited {message.edited_at ? `at ${new Date(message.edited_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : ''}</p>}
               {message.forwarded && <p>↪️ Forwarded message</p>}
             </div>
           </div>
