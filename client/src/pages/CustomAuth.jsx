@@ -147,23 +147,56 @@ const CustomAuth = () => {
      // Handle errors first
      if (error && provider) {
        console.error(`${provider} auth error:`, error);
-       toast.error(`${provider} authentication failed. Please try again.`);
+       const errorMessage = searchParams.get('message') || 'Authentication failed';
+       toast.error(`${provider} authentication failed: ${errorMessage}`);
        return;
      }
      
      // Handle successful OAuth callback
      if (token && provider) {
-       // Store token with correct key that AuthContext expects
-       localStorage.setItem('customAuthToken', token);
-       // Dispatch custom event to notify AuthContext of update
-       window.dispatchEvent(new Event('customAuthUpdate'));
-       toast.success(`Welcome! Logged in with ${provider}`);
-       // Wait a moment for AuthContext to update, then redirect
-       setTimeout(() => {
-         window.location.replace('/');
-       }, 500);
+       console.log(`[OAUTH] ${provider} login successful, fetching user profile...`);
+       
+       // Fetch user profile with the token
+       const fetchUserProfile = async () => {
+         try {
+           const response = await axios.get(`${API_URL}/api/user/profile`, {
+             headers: { Authorization: `Bearer ${token}` }
+           });
+           
+           if (response.data.success) {
+             const user = response.data.profile;
+             console.log('[OAUTH] User profile fetched:', user.email);
+             
+             // Store both token and user data
+             localStorage.setItem('customAuthToken', token);
+             localStorage.setItem('customUser', JSON.stringify(user));
+             
+             // Dispatch custom event to notify AuthContext of update
+             window.dispatchEvent(new Event('customAuthUpdate'));
+             
+             toast.success(`Welcome ${user.full_name}! Logged in with ${provider}`);
+             
+             // Redirect to feed
+             setTimeout(() => {
+               navigate('/');
+             }, 500);
+           } else {
+             throw new Error('Failed to fetch user profile');
+           }
+         } catch (err) {
+           console.error('[OAUTH] Failed to fetch user profile:', err);
+           toast.error('Login successful but failed to load profile. Please try again.');
+           // Still store token, user can refresh
+           localStorage.setItem('customAuthToken', token);
+           setTimeout(() => {
+             navigate('/');
+           }, 1000);
+         }
+       };
+       
+       fetchUserProfile();
      }
-   }, [searchParams, navigate]);
+   }, [searchParams, navigate, API_URL]);
 
   const checkPasswordStrength = (password) => {
     const requirements = {
