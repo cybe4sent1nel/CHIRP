@@ -1,6 +1,7 @@
 import express from 'express';
 import passport from '../configs/passport.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User.js';
 import {
   signup,
@@ -139,13 +140,23 @@ authRouter.get('/google/callback', async (req, res) => {
       }
     } else {
       console.log('[GOOGLE-CALLBACK] Creating new user...');
-      // Create new user
+      // Create new user with unique ID
+      const userId = 'user_' + crypto.randomBytes(16).toString('hex');
       const username = userData.email.split('@')[0];
+      
+      // Check if username exists and make it unique
+      let finalUsername = username;
+      const existingUsername = await User.findOne({ username });
+      if (existingUsername) {
+        finalUsername = username + Math.floor(Math.random() * 10000);
+      }
+      
       user = await User.create({
+        _id: userId,
         email: userData.email,
         googleId: userData.id,
         full_name: userData.name,
-        username,
+        username: finalUsername,
         profile_picture: userData.picture,
         authProvider: 'google',
         emailVerified: true
