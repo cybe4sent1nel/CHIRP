@@ -6,6 +6,8 @@ import { useCustomAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import Lottie from "lottie-react";
+import emptyNotificationAnimation from "../../public/animations/empty notification.json";
 
 const dummyNotifications = [
   {
@@ -228,8 +230,10 @@ const Notifications = () => {
             </div>
           ) : filteredNotifications.length === 0 ? (
             <div className="p-12 text-center">
-              <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">No notifications to show</p>
+              <div className="w-64 h-64 mx-auto">
+                <Lottie animationData={emptyNotificationAnimation} loop={true} />
+              </div>
+              <p className="text-gray-500 text-lg font-semibold mt-4">No notifications to show</p>
               <p className="text-gray-400 text-sm mt-1">You're all caught up!</p>
             </div>
           ) : (

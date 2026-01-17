@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
 import { config } from "dotenv";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -206,8 +207,17 @@ app.get("/api/message/:userId", async (req, res, next) => {
   }
 });
 
-// Health check route
+// Health check routes
 app.get("/", (req, res) => res.send("Server is running"));
+
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
+});
 
 // SSE diagnostic endpoint
 app.get("/api/sse-test/:userId", (req, res) => {

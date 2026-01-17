@@ -2,10 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Loader } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useAuth } from "@clerk/clerk-react";
+import { useCustomAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 const CreateChannel = () => {
   const user = useSelector((state) => state.user?.value);
   const navigate = useNavigate();
+  const { getToken } = useAuth();
+  const { token: customToken } = useCustomAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -48,34 +54,45 @@ const CreateChannel = () => {
 
     try {
       if (!formData.name.trim()) {
-        throw new Error("Channel name is required");
+        toast.error("Channel name is required");
+        setLoading(false);
+        return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BASEURL}/api/channels/create`,
+      const clerkToken = await getToken();
+      const authToken = clerkToken || customToken;
+
+      if (!authToken) {
+        toast.error("Please log in to create a channel");
+        navigate('/auth');
+        return;
+      }
+
+      const { data } = await api.post(
+        '/api/channels/create',
         {
-          method: "POST",
+          name: formData.name,
+          description: formData.description,
+          background_url: formData.background_url,
+        },
+        {
           headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            description: formData.description,
-            background_url: formData.background_url,
-            creator_id: user._id,
-          }),
+            Authorization: `Bearer ${authToken}`
+          }
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create channel");
+      if (data.success) {
+        toast.success('Channel created successfully!');
+        navigate(`/channel/${data.channel._id}`);
+      } else {
+        toast.error(data.message || "Failed to create channel");
       }
-
-      const data = await response.json();
-      navigate(`/channel/${data.channel._id}`);
     } catch (err) {
-      setError(err.message);
+      console.error('Channel creation error:', err);
+      const errorMessage = err.response?.data?.message || err.message || "Failed to create channel";
+      toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -16,7 +16,9 @@
     "install:all": "npm install && npm install --legacy-peer-deps --prefix client && npm install --prefix server",
     "vercel-build": "npm run build:all",
     "start:win": "start.bat",
-    "start:ps": "powershell -ExecutionPolicy Bypass -File start.ps1"
+    "start:ps": "powershell -ExecutionPolicy Bypass -File start.ps1",
+    "test:timeout": "node test-auth-timeout.js",
+    "keep-alive": "node keep-alive.js"
   },
   "keywords": ["social-media", "chirp", "chat", "network"],
   "author": "Fahad Khan (cybe4sent1nel)",

@@ -115,25 +115,19 @@ export const signup = async (req, res) => {
     // Generate JWT
     const token = generateToken(user._id);
 
-    // Send verification email
+    // Send verification email (non-blocking to prevent timeout)
     const verificationLink = `${FRONTEND_URL}/verify-email?token=${verificationToken}`;
-    console.log('Sending verification email to:', email);
+    console.log('Queueing verification email to:', email);
     console.log('Verification token:', verificationToken);
     console.log('Verification link:', verificationLink);
     
-    try {
-      await sendEmailWithFallback({
-        to: email,
-        subject: '✨ Verify Your Email - Welcome to Chirp!',
-        body: verificationEmail(full_name, verificationLink)
-      });
-      console.log('Verification email sent successfully');
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Don't fail signup if email fails
-    }
+    // Queue both emails without blocking response
+    sendEmailWithFallback({
+      to: email,
+      subject: '✨ Verify Your Email - Welcome to Chirp!',
+      body: verificationEmail(full_name, verificationLink)
+    }).catch(err => console.error('Failed to send verification email:', err));
 
-    // Send welcome email (non-blocking)
     sendEmailWithFallback({
       to: email,
       subject: '🎉 Welcome to Chirp!',
@@ -249,16 +243,15 @@ export const login = async (req, res) => {
       // Don't await, let it send in background
     }
 
-    // Update last login information
-    console.log('[AUTH] Updating last login info...');
+    // Update last login information (non-blocking to prevent timeout)
+    console.log('[AUTH] Queueing login info update...');
     user.lastLoginLocation = loginInfo.location;
     user.lastLoginDevice = loginInfo.device;
     user.lastLoginIP = loginInfo.ip;
     user.lastLoginAt = new Date();
     
-    console.log('[AUTH] Saving user...');
-    await user.save();
-    console.log('[AUTH] User saved successfully');
+    // Save in background without blocking response
+    user.save().catch(err => console.error('[AUTH] Failed to update login info:', err));
 
     console.log('[AUTH] Sending login response...');
     res.json({

@@ -13,7 +13,10 @@ import { useCustomAuth } from "../context/AuthContext";
 import api from '../api/axios.js'
 import {toast} from 'react-hot-toast'
 import { useSelector } from "react-redux";
-import { QrCode } from "lucide-react";
+import { QrCode, Lock } from "lucide-react";
+import Lottie from "lottie-react";
+import emptyPostsAnimation from "../../public/animations/emptyposts.json";
+import privateAccountAnimation from "../../public/animations/security.json";
 const Profile = () => {
   const navigate = useNavigate();
   const currentUser = useSelector((state) => state.user.value)
@@ -93,9 +96,36 @@ const Profile = () => {
           {/* Posts */}
           {activeTab === "posts" && (
             <div className="mt-6 flex flex-col items-center gap-6">
-              {posts.map((post) => (
-                <PostCard key={post._id} post={post} />
-              ))}
+              {user.privateAccount && profileId && profileId !== currentUser._id ? (
+                <div className="w-full bg-white rounded-xl shadow-lg p-12 text-center">
+                  <div className="w-64 h-64 mx-auto">
+                    <Lottie animationData={privateAccountAnimation} loop={true} />
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Lock className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-xl font-bold text-gray-900">This Account is Private</h3>
+                  </div>
+                  <p className="text-gray-500 mt-2">Follow this account to see their posts</p>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="w-full bg-white rounded-xl shadow-lg p-12 text-center">
+                  <div className="w-64 h-64 mx-auto">
+                    <Lottie animationData={emptyPostsAnimation} loop={true} />
+                  </div>
+                  <p className="text-gray-500 text-lg font-semibold mt-4">
+                    {profileId === currentUser._id || !profileId ? "No posts yet" : "No posts to show"}
+                  </p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    {profileId === currentUser._id || !profileId 
+                      ? "Start sharing your thoughts with the world!" 
+                      : "This user hasn't posted anything yet"}
+                  </p>
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <PostCard key={post._id} post={post} />
+                ))
+              )}
             </div>
           )}
 
