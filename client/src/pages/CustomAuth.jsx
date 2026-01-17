@@ -159,12 +159,12 @@ const CustomAuth = () => {
        // Fetch user profile with the token
        const fetchUserProfile = async () => {
          try {
-           const response = await axios.get(`${API_URL}/api/user/profile`, {
+           const response = await axios.get(`${API_URL}/api/user/data`, {
              headers: { Authorization: `Bearer ${token}` }
            });
            
            if (response.data.success) {
-             const user = response.data.profile;
+             const user = response.data.user;
              console.log('[OAUTH] User profile fetched:', user.email);
              
              // Store both token and user data
